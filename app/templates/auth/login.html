@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Arbitrage Monkey || By Quantum Automata</title>
+  <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.min.css') }}" />
+</head>
+
+<body>
+  <!-- Flash Messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="position-fixed top-0 end-0 p-3" style="z-index: 1050">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <!--  Body Wrapper -->
+  <div class="page-wrapper" id="main-wrapper" data-layout="vertical" data-navbarbg="skin6" data-sidebartype="full"
+    data-sidebar-position="fixed" data-header-position="fixed">
+    <div class="position-relative overflow-hidden text-bg-light min-vh-100 d-flex align-items-center justify-content-center">
+      <div class="d-flex align-items-center justify-content-center w-100">
+        <div class="row justify-content-center w-100">
+          <div class="col-md-8 col-lg-6 col-xxl-3">
+            <div class="card mb-0 shadow-lg">
+              <div class="card-body">
+                <a href="{{ url_for('dashboard.index') }}" class="text-nowrap logo-img text-center d-block py-3 w-100">
+                  <img src="{{ url_for('static', filename='images/logos/logo.svg') }}" alt="Arbitrage Monkey Logo">
+                </a>
+                <p class="text-center text-muted">Arbitrage Monkey | Super Arbitrage Scanner</p>
+                
+                <form method="POST" action="{{ url_for('auth.login') }}" novalidate>
+                  {{ form.csrf_token }}
+                  
+                  <!-- Email Field -->
+                  <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), id="email", placeholder="Enter your email") }}
+                    {% if form.email.errors %}
+                      <div class="invalid-feedback">
+                        {% for error in form.email.errors %}
+                          {{ error }}
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
+                  
+                  <!-- Password Field -->
+                  <div class="mb-4">
+                    <label for="password" class="form-label">Password</label>
+                    {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), id="password", placeholder="Enter your password") }}
+                    {% if form.password.errors %}
+                      <div class="invalid-feedback">
+                        {% for error in form.password.errors %}
+                          {{ error }}
+                        {% endfor %}
+                      </div>
+                    {% endif %}
+                  </div>
+                  
+                  <!-- Remember Me & Forgot Password -->
+                  <div class="d-flex align-items-center justify-content-between mb-4">
+                    <div class="form-check">
+                      {{ form.remember_me(class="form-check-input", id="remember") }}
+                      <label class="form-check-label text-dark" for="remember">
+                        Remember this Device
+                      </label>
+                    </div>
+                    <a class="text-primary fw-bold text-decoration-none" href="{{ url_for('auth.reset_password_request') }}">Forgot Password?</a>
+                  </div>
+                  
+                  <!-- Submit Button -->
+                  <button type="submit" class="btn btn-primary w-100 py-3 fs-4 mb-4 rounded-2 fw-bold">Sign In</button>
+                  
+                  <!-- Registration Link -->
+                  <div class="d-flex align-items-center justify-content-center">
+                    <p class="fs-4 mb-0 fw-bold text-muted">New to Arbitrage Monkey?</p>
+                    <a class="text-primary fw-bold ms-2 text-decoration-none" href="{{ url_for('auth.register') }}">Create an account</a>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="{{ url_for('static', filename='libs/jquery/dist/jquery.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/bootstrap/dist/js/bootstrap.bundle.min.js') }}"></script>
+  
+  <script>
+    // Auto-dismiss alerts after 5 seconds
+    $(document).ready(function() {
+      setTimeout(function() {
+        $('.alert').alert('close');
+      }, 5000);
+    });
+  </script>
+</body>
+
+</html>

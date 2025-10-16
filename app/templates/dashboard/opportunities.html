@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="body-wrapper-inner">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h4 class="card-title mb-0">Arbitrage Opportunities</h4>
+                            <div class="d-flex align-items-center gap-3">
+                                {% if user_preferences and user_preferences.is_configuration_active %}
+                                <div class="configuration-status active">
+                                    <i class="ti ti-circle-check text-success me-2"></i>
+                                    <span class="text-success fw-medium">Scanner Active</span>
+                                </div>
+                                {% else %}
+                                <div class="configuration-status inactive">
+                                    <i class="ti ti-circle-x text-warning me-2"></i>
+                                    <span class="text-warning fw-medium">Scanner Inactive</span>
+                                    <small class="text-muted d-block">Configure settings to activate</small>
+                                </div>
+                                {% endif %}
+                                <button class="btn btn-primary btn-sm" onclick="refreshOpportunities()">
+                                    <i class="ti ti-refresh me-1"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+
+                        {% if not user_preferences or not user_preferences.is_configuration_active %}
+                        <div class="alert alert-warning d-flex align-items-center" role="alert">
+                            <i class="ti ti-alert-triangle me-2"></i>
+                            <div>
+                                <strong>Scanner Not Active:</strong> Please <a href="{{ url_for('dashboard.configure') }}" class="alert-link">configure your settings</a> to start finding arbitrage opportunities.
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if opportunities %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th scope="col">Asset</th>
+                                        <th scope="col">Buy Exchange</th>
+                                        <th scope="col">Sell Exchange</th>
+                                        <th scope="col">Price Difference</th>
+                                        <th scope="col">Net Profit %</th>
+                                        <th scope="col">Profit Calculator</th>
+                                        <th scope="col">Min Investment</th>
+                                        <th scope="col">Timestamp</th>
+                                        <th scope="col">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for opportunity in opportunities %}
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 32px; height: 32px; font-size: 12px; font-weight: bold;">
+                                                    {{ opportunity.token_symbol[:2].upper() }}
+                                                </div>
+                                                <div class="ms-2">
+                                                    <span class="fw-medium">{{ opportunity.token_symbol.upper() }}</span>
+                                                    <small class="text-muted d-block">{{ opportunity.token_id }}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-info-subtle text-info">{{ opportunity.buy_exchange }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-success-subtle text-success">{{ opportunity.sell_exchange }}</span>
+                                        </td>
+                                        <td>
+                                            <span class="fw-medium text-success">${{ "%.4f"|format(opportunity.raw_price_difference or 0) }}</span>
+                                            <small class="text-muted d-block">per unit</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge {% if opportunity.net_profit_percent >= 1 %}bg-success{% elif opportunity.net_profit_percent >= 0.5 %}bg-warning{% else %}bg-danger{% endif %}">
+                                                {{ "%.2f"|format(opportunity.net_profit_percent) }}%
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <div class="profit-calculator">
+                                                <small class="text-muted d-block">$500 → <span class="text-success fw-medium">${{ "%.2f"|format(opportunity.profit_on_500 or 0) }}</span></small>
+                                                <small class="text-muted d-block">$1K → <span class="text-success fw-medium">${{ "%.2f"|format(opportunity.profit_on_1000 or 0) }}</span></small>
+                                                <small class="text-muted d-block">$5K → <span class="text-success fw-medium">${{ "%.2f"|format(opportunity.profit_on_5000 or 0) }}</span></small>
+                                                <small class="text-muted d-block">$10K → <span class="text-success fw-medium">${{ "%.2f"|format(opportunity.profit_on_10000 or 0) }}</span></small>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="fw-medium">${{ "%.2f"|format(opportunity.min_investment_required or 0) }}</span>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {{ opportunity.timestamp.strftime('%m/%d %H:%M') }}
+                                            </small>
+                                        </td>
+                                        <td>
+                                            {% if opportunity.is_active %}
+                                            <span class="badge bg-success-subtle text-success">
+                                                <i class="ti ti-circle-check me-1"></i>Active
+                                            </span>
+                                            {% else %}
+                                            <span class="badge bg-secondary-subtle text-secondary">
+                                                <i class="ti ti-circle-x me-1"></i>Expired
+                                            </span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-4">
+                            <div class="text-muted">
+                                Showing {{ opportunities|length }} opportunities
+                                {% if user_preferences and (user_preferences.preferred_assets or user_preferences.preferred_exchanges) %}
+                                (filtered by your preferences)
+                                {% endif %}
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-outline-primary btn-sm" onclick="exportOpportunities()">
+                                    <i class="ti ti-download me-1"></i> Export CSV
+                                </button>
+                                <a href="{{ url_for('dashboard.configure') }}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="ti ti-settings me-1"></i> Configure
+                                </a>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <div class="mb-4">
+                                <i class="ti ti-search-off" style="font-size: 4rem; color: #ccc;"></i>
+                            </div>
+                            <h5 class="text-muted mb-3">No Arbitrage Opportunities Found</h5>
+                            <p class="text-muted mb-4">
+                                {% if not user_preferences or not user_preferences.is_configuration_active %}
+                                Configure your scanner settings to start finding opportunities.
+                                {% else %}
+                                No profitable opportunities match your current criteria. Try adjusting your settings or check back later.
+                                {% endif %}
+                            </p>
+                            <div class="d-flex justify-content-center gap-2">
+                                {% if not user_preferences or not user_preferences.is_configuration_active %}
+                                <a href="{{ url_for('dashboard.configure') }}" class="btn btn-primary">
+                                    <i class="ti ti-settings me-1"></i> Configure Scanner
+                                </a>
+                                {% else %}
+                                <button class="btn btn-primary" onclick="refreshOpportunities()">
+                                    <i class="ti ti-refresh me-1"></i> Refresh
+                                </button>
+                                <a href="{{ url_for('dashboard.configure') }}" class="btn btn-outline-secondary">
+                                    <i class="ti ti-settings me-1"></i> Adjust Settings
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function refreshOpportunities() {
+    // Show loading state
+    const refreshBtn = document.querySelector('button[onclick="refreshOpportunities()"]');
+    const originalText = refreshBtn.innerHTML;
+    refreshBtn.innerHTML = '<i class="ti ti-loader-2 me-1 spin"></i> Refreshing...';
+    refreshBtn.disabled = true;
+    
+    // Reload the page to get fresh data
+    setTimeout(() => {
+        window.location.reload();
+    }, 500);
+}
+
+function exportOpportunities() {
+    // Get table data
+    const table = document.querySelector('table');
+    if (!table) {
+        alert('No data to export');
+        return;
+    }
+    
+    let csv = [];
+    const rows = table.querySelectorAll('tr');
+    
+    // Process each row
+    for (let i = 0; i < rows.length; i++) {
+        const row = [];
+        const cols = rows[i].querySelectorAll('td, th');
+        
+        for (let j = 0; j < cols.length; j++) {
+            // Clean up the cell text
+            let cellText = cols[j].innerText.replace(/\n/g, ' ').replace(/,/g, ';');
+            row.push('"' + cellText + '"');
+        }
+        csv.push(row.join(','));
+    }
+    
+    // Create and download CSV
+    const csvContent = csv.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', 'arbitrage_opportunities_' + new Date().toISOString().split('T')[0] + '.csv');
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+
+// Add spinning animation for refresh button
+const style = document.createElement('style');
+style.textContent = `
+    .spin {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+`;
+document.head.appendChild(style);
+</script>
+{% endblock %}

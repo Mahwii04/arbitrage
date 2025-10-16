@@ -1,0 +1,20 @@
+{
+  "included_exchanges": [
+    "binance",
+    "coinbase",
+    "kraken",
+    "kucoin",
+    "gateio",
+    "huobi",
+    "bitfinex",
+    "okex",
+    "bybit",
+    "bitstamp"
+  ],
+  "excluded_exchanges": [],
+  "settings": {
+    "min_volume_usd": 10000,
+    "require_trust_score": true,
+    "min_trust_score": "green"
+  }
+}

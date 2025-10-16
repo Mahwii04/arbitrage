@@ -1,0 +1,44 @@
+{
+    "assets": [
+        {
+            "id": "bitcoin",
+            "symbol": "BTC",
+            "name": "Bitcoin",
+            "enabled": true,
+            "slippage": 0.001
+        },
+        {
+            "id": "ethereum",
+            "symbol": "ETH",
+            "name": "Ethereum",
+            "enabled": true,
+            "slippage": 0.001
+        },
+        {
+            "id": "binancecoin",
+            "symbol": "BNB",
+            "name": "Binance Coin",
+            "enabled": true,
+            "slippage": 0.002
+        },
+        {
+            "id": "ripple",
+            "symbol": "XRP",
+            "name": "XRP",
+            "enabled": true,
+            "slippage": 0.002
+        },
+        {
+            "id": "cardano",
+            "symbol": "ADA",
+            "name": "Cardano",
+            "enabled": true,
+            "slippage": 0.002
+        }
+    ],
+    "metadata": {
+        "last_updated": "2025-09-30",
+        "total_assets": 5,
+        "default_slippage": 0.002
+    }
+}

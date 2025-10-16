@@ -1,0 +1,28 @@
+{
+    "subscription_tiers": {
+        "free": {
+            "name": "Free",
+            "max_exchanges": 2,
+            "max_assets": 10,
+            "scans_per_month": 20,
+            "notification_channels": ["webapp"],
+            "price": 0
+        },
+        "pro": {
+            "name": "Pro",
+            "max_exchanges": 10,
+            "max_assets": 50,
+            "scans_per_month": 50,
+            "notification_channels": ["webapp", "email"],
+            "price": 29.99
+        },
+        "premium": {
+            "name": "Premium",
+            "max_exchanges": -1,
+            "max_assets": -1,
+            "scans_per_month": -1,
+            "notification_channels": ["webapp", "email", "telegram"],
+            "price": 99.99
+        }
+    }
+}

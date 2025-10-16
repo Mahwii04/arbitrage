@@ -1,0 +1,511 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="body-wrapper-inner">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h4 class="card-title mb-0">Configure Arbitrage Settings</h4>
+                            <div class="d-flex align-items-center gap-3">
+                                {% if user_preferences.is_configuration_active %}
+                                <div class="configuration-status active">
+                                    <i class="ti ti-circle-check text-success me-2"></i>
+                                    <span class="text-success fw-medium">Scanner Active</span>
+                                    <small class="text-muted d-block">Since {{ user_preferences.configuration_started_at.strftime('%m/%d/%Y %I:%M %p') if user_preferences.configuration_started_at else 'N/A' }}</small>
+                                </div>
+                                {% else %}
+                                <div class="configuration-status inactive">
+                                    <i class="ti ti-circle-x text-warning me-2"></i>
+                                    <span class="text-warning fw-medium">Scanner Inactive</span>
+                                    <small class="text-muted d-block">Complete setup to activate</small>
+                                </div>
+                                {% endif %}
+                                <div class="steps-indicator">
+                                    <span class="badge rounded-pill fs-2 fw-medium" id="step-1-badge">1</span>
+                                    <span class="badge rounded-pill fs-2 fw-medium bg-secondary-subtle" id="step-2-badge">2</span>
+                                    <span class="badge rounded-pill fs-2 fw-medium bg-secondary-subtle" id="step-3-badge">3</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <form id="settings-form" method="POST" action="{{ url_for('dashboard.save_settings') }}">
+                            <!-- Step 1: Exchange Selection -->
+                            <div class="step-section" id="step-1">
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h5 class="mb-0">Select Exchanges to Monitor</h5>
+                                    <div class="validation-counter">
+                                        <span class="badge bg-secondary" id="exchange-counter">0/2 selected</span>
+                                    </div>
+                                </div>
+                                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 exchange-grid">
+                                    {% for exchange in exchanges %}
+                                    <div class="col">
+                                        <div class="card h-100 exchange-card">
+                                            <div class="card-body">
+                                                <div class="form-check d-flex align-items-center px-3">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           name="exchanges" value="{{ exchange.id }}"
+                                                           id="exchange-{{ exchange.id }}"
+                                                           {% if exchange.id in user_preferences.preferred_exchanges %}checked{% endif %}>
+                                                    <label class="form-check-label ms-3" for="exchange-{{ exchange.id }}">
+                                                        <div class="d-flex align-items-center">
+                                                            <img src="{{ exchange.logo_url }}" 
+                                                                 data-backup-src="{{ url_for('static', filename='images/exchanges/' + exchange.id + '.png') }}"
+                                                                 alt="{{ exchange.name }}" 
+                                                                 class="exchange-logo me-2" 
+                                                                 width="24" height="24">
+                                                            <span class="exchange-name">{{ exchange.name }}</span>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                                <div class="exchange-stats mt-2">
+                                                    <small class="text-muted d-block">24h Volume: ${{ exchange.volume_24h }}</small>
+                                                    <small class="text-muted d-block">Pairs: {{ exchange.pairs_count }}</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="d-flex justify-content-end mt-4">
+                                    <button type="button" class="btn btn-primary" onclick="nextStep(1)">Next</button>
+                                </div>
+                            </div>
+
+                            <!-- Step 2: Asset Selection -->
+                            <div class="step-section d-none" id="step-2">
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h5 class="mb-0">Select Assets to Track</h5>
+                                    <div class="validation-counter">
+                                        <span class="badge bg-secondary" id="asset-counter">0/1 selected</span>
+                                    </div>
+                                </div>
+                                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 asset-grid">
+                                    {% for asset in assets %}
+                                    <div class="col">
+                                        <div class="card h-100 asset-card">
+                                            <div class="card-body">
+                                                <div class="form-check d-flex align-items-center px-3">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           name="assets" value="{{ asset.id }}"
+                                                           id="asset-{{ asset.id }}"
+                                                           {% if asset.id in user_preferences.preferred_assets %}checked{% endif %}>
+                                                    <label class="form-check-label ms-3" for="asset-{{ asset.id }}">
+                                                        <div class="d-flex align-items-center">
+                                                            <img src="https://assets.coingecko.com/coins/images/{{ asset.coingecko_image_id|default('1') }}/thumb/{{ asset.id }}.png"
+                                                                 data-backup-src="{{ url_for('static', filename='images/assets/' + asset.id + '.png') }}"
+                                                                 alt="{{ asset.name }}" 
+                                                                 class="asset-logo me-2"
+                                                                 width="24" height="24">
+                                                            <span class="asset-name">{{ asset.name }}</span>
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                                <div class="asset-stats mt-2">
+                                                    <small class="text-muted d-block">Market Cap: ${{ asset.market_cap }}</small>
+                                                    <small class="text-muted d-block">24h Volume: ${{ asset.volume_24h }}</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="d-flex justify-content-between mt-4">
+                                    <button type="button" class="btn btn-secondary" onclick="prevStep(2)">Previous</button>
+                                    <button type="button" class="btn btn-primary" onclick="nextStep(2)">Next</button>
+                                </div>
+                            </div>
+
+                            <!-- Step 3: Thresholds -->
+                            <div class="step-section d-none" id="step-3">
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h5 class="mb-0">Set Trading Parameters</h5>
+                                    <div class="validation-counter">
+                                        <span class="badge bg-secondary" id="profit-counter">Min: 0.5%</span>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-subtitle mb-3 text-muted">Profit Threshold</h6>
+                                                <div class="mb-4">
+                                                    <label for="min-profit" class="form-label">Minimum Profit Percentage (%)</label>
+                                                    <div class="input-group">
+                                                        <input type="number" class="form-control" id="min-profit" 
+                                                               name="min_profit_percent" step="0.1" min="0.1"
+                                                               value="{{ user_preferences.min_profit_percent|default(0.5) }}">
+                                                        <span class="input-group-text">%</span>
+                                                    </div>
+                                                    <small class="text-muted">Minimum profit required to trigger notifications</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-subtitle mb-3 text-muted">Risk Management</h6>
+                                                <div class="mb-3">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="include-slippage"
+                                                               name="include_slippage" 
+                                                               {% if user_preferences.include_slippage %}checked{% endif %}>
+                                                        <label class="form-check-label" for="include-slippage">
+                                                            Include Slippage in Calculations
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" id="include-fees"
+                                                               name="include_fees"
+                                                               {% if user_preferences.include_fees %}checked{% endif %}>
+                                                        <label class="form-check-label" for="include-fees">
+                                                            Include Exchange Fees
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="d-flex justify-content-between mt-4">
+                                    <button type="button" class="btn btn-secondary" onclick="prevStep(3)">Previous</button>
+                                    <button type="submit" class="btn btn-success">Save Settings</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add this to your scripts section -->
+{% block scripts %}
+<script>
+function validateStep(step) {
+    if (step === 1) {
+        // Validate minimum 2 exchanges
+        const selectedExchanges = document.querySelectorAll('input[name="exchanges"]:checked');
+        if (selectedExchanges.length < 2) {
+            showToast('Please select at least 2 exchanges');
+            return false;
+        }
+    } else if (step === 2) {
+        // Validate minimum 1 asset
+        const selectedAssets = document.querySelectorAll('input[name="assets"]:checked');
+        if (selectedAssets.length < 1) {
+            showToast('Please select at least 1 asset');
+            return false;
+        }
+    } else if (step === 3) {
+        // Validate profit threshold
+        const minProfit = parseFloat(document.getElementById('min-profit').value) || 0;
+        if (minProfit < 0.5) {
+            showToast('Minimum profit threshold is 0.5%');
+            return false;
+        }
+    }
+    return true;
+}
+
+function nextStep(currentStep) {
+    if (!validateStep(currentStep)) {
+        return;
+    }
+    
+    // Hide current step
+    document.getElementById(`step-${currentStep}`).classList.add('d-none');
+    // Show next step
+    document.getElementById(`step-${currentStep + 1}`).classList.remove('d-none');
+    // Update badges
+    document.getElementById(`step-${currentStep}-badge`).classList.add('bg-success-subtle');
+    document.getElementById(`step-${currentStep + 1}-badge`).classList.remove('bg-secondary-subtle');
+    
+    // Scroll to top of the form
+    document.querySelector('.card').scrollIntoView({ behavior: 'smooth' });
+}
+
+function prevStep(currentStep) {
+    // Hide current step
+    document.getElementById(`step-${currentStep}`).classList.add('d-none');
+    // Show previous step
+    document.getElementById(`step-${currentStep - 1}`).classList.remove('d-none');
+    // Update badges
+    document.getElementById(`step-${currentStep}-badge`).classList.add('bg-secondary-subtle');
+    document.getElementById(`step-${currentStep - 1}-badge`).classList.remove('bg-success-subtle');
+}
+
+function showToast(message) {
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+    toastContainer.style.zIndex = '1050';
+    
+    const toast = document.createElement('div');
+    toast.className = 'toast align-items-center text-white bg-danger border-0';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">
+                ${message}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    document.body.appendChild(toastContainer);
+    
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    toast.addEventListener('hidden.bs.toast', function () {
+        toastContainer.remove();
+    });
+}
+
+// Handle logo loading errors
+document.addEventListener('DOMContentLoaded', function() {
+    const logos = document.querySelectorAll('.exchange-logo, .asset-logo');
+    logos.forEach(logo => {
+        logo.addEventListener('error', function() {
+            const backupSrc = this.getAttribute('data-backup-src');
+            if (backupSrc && this.src !== backupSrc) {
+                this.src = backupSrc;
+            }
+        });
+    });
+});
+
+// Real-time validation feedback
+function validateForm() {
+    const selectedExchanges = document.querySelectorAll('input[name="exchanges"]:checked');
+    const selectedAssets = document.querySelectorAll('input[name="assets"]:checked');
+    const minProfit = parseFloat(document.getElementById('min-profit').value) || 0;
+    
+    let isValid = true;
+    let messages = [];
+    
+    // Validate exchanges
+    if (selectedExchanges.length < 2) {
+        messages.push('Please select at least 2 exchanges');
+        isValid = false;
+    }
+    
+    // Validate assets
+    if (selectedAssets.length < 1) {
+        messages.push('Please select at least 1 asset');
+        isValid = false;
+    }
+    
+    // Validate profit threshold
+    if (minProfit < 0.5) {
+        messages.push('Minimum profit threshold is 0.5%');
+        isValid = false;
+    }
+    
+    return { isValid, messages };
+}
+
+// Update counter displays
+function updateCounters() {
+    const selectedExchanges = document.querySelectorAll('input[name="exchanges"]:checked');
+    const selectedAssets = document.querySelectorAll('input[name="assets"]:checked');
+    const minProfit = parseFloat(document.getElementById('min-profit').value) || 0;
+    
+    // Update exchange counter
+    const exchangeCounter = document.getElementById('exchange-counter');
+    if (exchangeCounter) {
+        exchangeCounter.textContent = `${selectedExchanges.length}/2 selected`;
+        if (selectedExchanges.length >= 2) {
+            exchangeCounter.className = 'badge bg-success';
+        } else {
+            exchangeCounter.className = 'badge bg-secondary';
+        }
+    }
+    
+    // Update asset counter
+    const assetCounter = document.getElementById('asset-counter');
+    if (assetCounter) {
+        assetCounter.textContent = `${selectedAssets.length}/1 selected`;
+        if (selectedAssets.length >= 1) {
+            assetCounter.className = 'badge bg-success';
+        } else {
+            assetCounter.className = 'badge bg-secondary';
+        }
+    }
+    
+    // Update profit counter
+    const profitCounter = document.getElementById('profit-counter');
+    if (profitCounter) {
+        profitCounter.textContent = `Current: ${minProfit}%`;
+        if (minProfit >= 0.5) {
+            profitCounter.className = 'badge bg-success';
+        } else {
+            profitCounter.className = 'badge bg-warning';
+        }
+    }
+}
+
+// Add real-time validation listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize counters
+    updateCounters();
+    
+    // Listen for exchange selection changes
+    document.querySelectorAll('input[name="exchanges"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateCounters();
+            const validation = validateForm();
+            if (!validation.isValid && validation.messages.some(msg => msg.includes('exchanges'))) {
+                showToast(validation.messages.find(msg => msg.includes('exchanges')));
+            }
+        });
+    });
+    
+    // Listen for asset selection changes
+    document.querySelectorAll('input[name="assets"]').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateCounters();
+            const validation = validateForm();
+            if (!validation.isValid && validation.messages.some(msg => msg.includes('asset'))) {
+                showToast(validation.messages.find(msg => msg.includes('asset')));
+            }
+        });
+    });
+    
+    // Listen for profit threshold changes
+    document.getElementById('min-profit').addEventListener('input', function() {
+        updateCounters();
+        const validation = validateForm();
+        if (!validation.isValid && validation.messages.some(msg => msg.includes('profit'))) {
+            showToast(validation.messages.find(msg => msg.includes('profit')));
+        }
+    });
+});
+
+// Form validation
+document.getElementById('settings-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const validation = validateForm();
+    
+    if (!validation.isValid) {
+        validation.messages.forEach(message => showToast(message));
+        return;
+    }
+
+    // If all validations pass, submit the form
+    this.submit();
+});
+</script>
+
+<style>
+.steps-indicator {
+    display: flex;
+    gap: 1rem;
+}
+
+.configuration-status {
+    text-align: center;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border: 2px solid;
+    background: rgba(255, 255, 255, 0.8);
+    min-width: 140px;
+}
+
+.configuration-status.active {
+    border-color: var(--bs-success);
+    background: rgba(25, 135, 84, 0.1);
+}
+
+.configuration-status.inactive {
+    border-color: var(--bs-warning);
+    background: rgba(255, 193, 7, 0.1);
+}
+
+.configuration-status i {
+    font-size: 1.2rem;
+}
+
+.configuration-status small {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+}
+
+.exchange-card, .asset-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.exchange-card:hover, .asset-card:hover {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.exchange-card input[type="checkbox"],
+.asset-card input[type="checkbox"] {
+    cursor: pointer;
+}
+
+.exchange-card .form-check,
+.asset-card .form-check {
+    margin: 0;
+    width: 100%;
+}
+
+.exchange-card .card-body,
+.asset-card .card-body {
+    padding: 1rem;
+}
+
+.form-check-input {
+    margin-left: 0;
+}
+
+.exchange-logo,
+.asset-logo {
+    object-fit: contain;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background-color: var(--bs-light);
+    padding: 2px;
+}
+
+.form-check-input:checked ~ .form-check-label .exchange-logo,
+.form-check-input:checked ~ .form-check-label .asset-logo {
+    background-color: var(--bs-primary-subtle);
+    padding: 2px;
+}
+
+/* Card selection styling */
+.exchange-card input[type="checkbox"]:checked ~ .card-body,
+.asset-card input[type="checkbox"]:checked ~ .card-body {
+    background-color: var(--bs-primary-subtle);
+}
+
+/* Toast styling */
+.toast-container {
+    z-index: 1050;
+}
+
+.toast {
+    background-color: var(--bs-danger) !important;
+    color: white !important;
+}
+</style>
+{% endblock %}
+{% endblock %}

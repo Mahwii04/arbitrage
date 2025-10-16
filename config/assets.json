@@ -1,0 +1,21 @@
+{
+  "cryptocurrencies": [
+    {
+      "id": "bitcoin",
+      "symbol": "btc",
+      "name": "Bitcoin",
+      "enabled": true
+    },
+    {
+      "id": "ethereum",
+      "symbol": "eth",
+      "name": "Ethereum",
+      "enabled": true
+    }
+  ],
+  "settings": {
+    "auto_discover_top_assets": true,
+    "top_assets_limit": 20,
+    "update_frequency_hours": 24
+  }
+}

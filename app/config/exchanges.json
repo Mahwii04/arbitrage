@@ -1,0 +1,74 @@
+{
+    "exchanges": [
+        {
+            "id": "binance",
+            "name": "Binance",
+            "maker_fee": 0.001,
+            "taker_fee": 0.001,
+            "enabled": true
+        },
+        {
+            "id": "coinbase",
+            "name": "Coinbase",
+            "maker_fee": 0.006,
+            "taker_fee": 0.006,
+            "enabled": true
+        },
+        {
+            "id": "kraken",
+            "name": "Kraken",
+            "maker_fee": 0.0016,
+            "taker_fee": 0.0026,
+            "enabled": true
+        },
+        {
+            "id": "kucoin",
+            "name": "KuCoin",
+            "maker_fee": 0.001,
+            "taker_fee": 0.001,
+            "enabled": true
+        },
+        {
+            "id": "ftx",
+            "name": "FTX",
+            "maker_fee": 0.002,
+            "taker_fee": 0.007,
+            "enabled": true
+        },
+        {
+            "id": "huobi",
+            "name": "Huobi Global",
+            "maker_fee": 0.002,
+            "taker_fee": 0.002,
+            "enabled": true
+        },
+        {
+            "id": "bitfinex",
+            "name": "Bitfinex",
+            "maker_fee": 0.001,
+            "taker_fee": 0.002,
+            "enabled": true
+        },
+        {
+            "id": "gateio",
+            "name": "Gate.io",
+            "maker_fee": 0.002,
+            "taker_fee": 0.002,
+            "enabled": true
+        },
+        {
+            "id": "bybit",
+            "name": "Bybit",
+            "maker_fee": 0.001,
+            "taker_fee": 0.001,
+            "enabled": true
+        },
+        {
+            "id": "okx",
+            "name": "OKX",
+            "maker_fee": 0.0008,
+            "taker_fee": 0.001,
+            "enabled": true
+        }
+    ]
+}

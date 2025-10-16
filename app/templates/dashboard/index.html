@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="body-wrapper-inner">
+    <div class="container-fluid">
+          <!--  Row 1 -->
+          <div class="row">
+            <div class="col-lg-8 d-flex align-items-strech">
+              <div class="card w-100">
+                <div class="card-body">
+                  <div class="d-sm-flex d-block align-items-center justify-content-between mb-9">
+                    <div class="mb-3 mb-sm-0">
+                      <h5 class="card-title fw-semibold">Arbitrage Opportunities</h5>
+                    </div>
+                    <div>
+                      <select class="form-select">
+                        <option value="1">Last 24 Hours</option>
+                        <option value="2">Last Week</option>
+                        <option value="3">Last Month</option>
+                        <option value="4">All Time</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div id="arbitrage-chart"></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-4">
+              <div class="row">
+                <div class="col-lg-12">
+                  <div class="card bg-danger-subtle shadow-none w-100">
+                    <div class="card-body">
+                      <div class="d-flex mb-10 pb-1 justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-6">
+                          <div
+                            class="rounded-circle-shape bg-danger px-3 py-2 rounded-pill d-inline-flex align-items-center justify-content-center">
+                            <iconify-icon icon="solar:users-group-rounded-bold-duotone"
+                              class="fs-7 text-white"></iconify-icon>
+                          </div>
+                          <h6 class="mb-0 fs-4 fw-medium text-muted">
+                            Active Opportunities
+                          </h6>
+                        </div>
+                        <div class="dropdown dropstart">
+                          <a href="javascript:void(0)" class="text-muted" id="dropdownMenuButton"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="ti ti-refresh fs-6"></i>
+                          </a>
+                          <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                            <li>
+                              <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
+                                  class="fs-4 ti ti-refresh"></i>Refresh Now</a>
+                            </li>
+                            <li>
+                              <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
+                                  class="fs-4 ti ti-settings"></i>Settings</a>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                      <div class="row align-items-end justify-content-between">
+                        <div class="col-5">
+                          <h2 class="mb-6 fs-8">12</h2>
+                          <span class="badge rounded-pill border border-success fw-bold text-success fs-2 py-1">4 new
+                            today</span>
+                        </div>
+                        <div class="col-5">
+                          <div id="total-followers" class="rounded-bars"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-lg-12">
+                  <div class="card bg-secondary-subtle shadow-none w-100">
+                    <div class="card-body">
+                      <div class="d-flex mb-10 pb-1 justify-content-between align-items-center">
+                        <div class="d-flex align-items-center gap-6">
+                          <div
+                            class="rounded-circle-shape bg-secondary px-3 py-2 rounded-pill d-inline-flex align-items-center justify-content-center">
+                            <iconify-icon icon="solar:wallet-2-line-duotone" class="fs-7 text-white"></iconify-icon>
+                          </div>
+                          <h6 class="mb-0 fs-4 fw-medium text-muted">
+                            Potential Profit
+                          </h6>
+                        </div>
+                        <div class="dropdown dropstart">
+                          <a href="javascript:void(0)" class="text-muted" id="dropdownMenuButton"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="ti ti-calculator fs-6"></i>
+                          </a>
+                          <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                            <li>
+                              <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
+                                  class="fs-4 ti ti-adjustments"></i>Adjust Fees</a>
+                            </li>
+                            <li>
+                              <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
+                                  class="fs-4 ti ti-settings"></i>Settings</a>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                      <div class="row align-items-center justify-content-between pt-4">
+                        <div class="col-5">
+                          <h2 class="mb-6 fs-8 text-nowrap">$1,245</h2>
+                          <span class="badge rounded-pill border border-success fw-bold text-success fs-2 py-1">2.5% avg
+                            spread</span>
+                        </div>
+                        <div class="col-5">
+                          <div id="total-income"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- Opportunities and Market Overview Row -->
+          <div class="row mt-4">
+            <div class="col-xxl-7 col-xl-7 col-lg-12 d-flex align-items-stretch">
+              <div class="card w-100 overflow-hidden">
+                <div class="card-body pb-0">
+                  <h4 class="fs-4 mb-1 card-title">Latest Opportunities</h4>
+                  <p class="mb-0 card-subtitle">Across {{ exchanges_count|default('all') }} exchanges</p>
+                </div>
+                <div class="table-responsive mt-3">
+                  <table class="table text-nowrap mb-0 align-middle table-hover">
+                    <thead class="fs-4">
+                      <tr>
+                        <th class="fs-3 px-4">Asset</th>
+                        <th class="fs-3">Exchanges</th>
+                        <th class="fs-3">Profit %</th>
+                        <th class="fs-3">Status</th>
+                        <th class="fs-3"></th>
+                      </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td>
+                            <div class="d-flex align-items-center">
+                              <div class="token-icon d-flex align-items-center justify-content-center rounded-circle bg-light" style="width: 40px; height: 40px;">
+                                <span class="fw-bold">BTC</span>
+                              </div>
+                              <div class="ms-3">
+                                <h6 class="fs-3 mb-0">
+                                  Bitcoin (BTC/USD)
+                                </h6>
+                                <small class="text-muted">Updated 2 min ago</small>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <h5 class="mb-0 fs-4">
+                              Binance → Kraken
+                            </h5>
+                            <p class="text-muted mb-2">Volume: $2.5M</p>
+                            <div class="progress bg-light w-100" style="height: 4px">
+                              <div class="progress-bar bg-success" role="progressbar" style="width: 85%"></div>
+                            </div>
+                          </td>
+                          <td>
+                            <span class="badge rounded-pill fs-2 fw-medium bg-success-subtle text-success">2.4%</span>
+                          </td>
+                          <td>
+                            <div class="dropdown dropstart">
+                              <a href="javascript:void(0)" class="text-muted" id="dropdownMenuButton"
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="ti ti-dots-vertical fs-6"></i>
+                              </a>
+                              <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                                <li>
+                                  <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
+                                      class="fs-4 ti ti-plus"></i>Add</a>
+                                </li>
+                                <li>
+                                  <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
+                                      class="fs-4 ti ti-edit"></i>Edit</a>
+                                </li>
+                                <li>
+                                  <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
+                                      class="fs-4 ti ti-trash"></i>Delete</a>
+                                </li>
+                              </ul>
+                            </div>
+                          </td>
+                        </tr>
+                        
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Market Overview Column -->
+            <div class="col-xxl-5 col-xl-5 col-lg-12 d-flex align-items-stretch">
+              <div class="card w-100">
+                <div class="card-body">
+                  <div class="d-flex mb-3 justify-content-between align-items-center">
+                    <h4 class="mb-0 card-title">Market Overview</h4>
+                    <div class="dropdown">
+                      <button id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false"
+                        class="rounded-circle btn-transparent rounded-circle btn-sm px-1 btn shadow-none">
+                        <i class="ti ti-settings fs-6"></i>
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton1">
+                        <li><a class="dropdown-item" href="javascript:void(0)">Update Now</a></li>
+                        <li>
+                          <a class="dropdown-item" href="javascript:void(0)">Change Exchanges</a>
+                        </li>
+                        <li>
+                          <a class="dropdown-item" href="javascript:void(0)">Notification Settings</a>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                  <ul class="list-unstyled mb-0">
+                    <li class="d-flex align-items-center justify-content-between py-10 border-bottom">
+                      <div class="d-flex align-items-center">
+                        <div
+                          class="rounded-circle-shape bg-primary-subtle me-3 rounded-pill d-inline-flex align-items-center justify-content-center">
+                          <iconify-icon icon="solar:card-line-duotone" class="fs-7 text-primary"></iconify-icon>
+                        </div>
+                        <div>
+                          <h6 class="mb-1 fs-3">Bitcoin (BTC)</h6>
+                          <p class="mb-0 fs-2 d-flex align-items-center gap-1">
+                            High volatility<i class="ti ti-info-circle"></i>
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        class="badge rounded-pill fw-medium fs-2 d-flex align-items-center bg-success-subtle text-success text-end"><i
+                          class="ti ti-trending-up"></i>3.2%</span>
+                    </li>
+
+                    <li class="d-flex align-items-center justify-content-between py-10 border-bottom">
+                      <div class="d-flex align-items-center">
+                        <div
+                          class="rounded-circle-shape bg-primary-subtle me-3 rounded-pill d-inline-flex align-items-center justify-content-center">
+                          <iconify-icon icon="solar:wallet-2-line-duotone" class="fs-7 text-primary"></iconify-icon>
+                        </div>
+                        <div>
+                          <h6 class="mb-1 fs-3">Ethereum (ETH)</h6>
+                          <p class="mb-0 fs-2 d-flex align-items-center gap-1">
+                            Moderate spread<i class="ti ti-info-circle"></i>
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        class="badge rounded-pill fw-medium fs-2 d-flex align-items-center bg-success-subtle text-success text-end"><i
+                          class="ti ti-trending-up"></i>1.8%</span>
+                    </li>
+
+                    <li class="d-flex align-items-center justify-content-between py-10 border-bottom">
+                      <div class="d-flex align-items-center">
+                        <div
+                          class="rounded-circle-shape bg-success-subtle me-3 rounded-pill d-inline-flex align-items-center justify-content-center">
+                          <iconify-icon icon="solar:course-up-line-duotone" class="fs-7 text-success"></iconify-icon>
+                        </div>
+                        <div>
+                          <h6 class="mb-1 fs-3">USDT/USDC</h6>
+                          <p class="mb-0 fs-2 d-flex align-items-center gap-1">
+                            Stable opportunity<i class="ti ti-info-circle"></i>
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        class="badge rounded-pill fw-medium fs-2 d-flex align-items-center bg-success-subtle text-success text-end"><i
+                          class="ti ti-trending-up"></i>0.5%</span>
+                    </li>
+
+                    <li class="d-flex align-items-center justify-content-between py-10 border-bottom">
+                      <div class="d-flex align-items-center">
+                        <div
+                          class="rounded-circle-shape bg-info-subtle me-3 rounded-pill d-inline-flex align-items-center justify-content-center">
+                          <iconify-icon icon="solar:graph-new-up-line-duotone" class="fs-7 text-info"></iconify-icon>
+                        </div>
+                        <div>
+                          <h6 class="mb-1 fs-3">Solana (SOL)</h6>
+                          <p class="mb-0 fs-2 d-flex align-items-center gap-1">
+                            New opportunity<i class="ti ti-info-circle"></i>
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        class="badge rounded-pill fw-medium fs-2 d-flex align-items-center bg-success-subtle text-success text-end"><i
+                          class="ti ti-trending-up"></i>2.1%</span>
+                    </li>
+
+                    <li class="d-flex align-items-center justify-content-between py-10 border-bottom">
+                      <div class="d-flex align-items-center">
+                        <div
+                          class="rounded-circle-shape bg-warning-subtle me-3 rounded-pill d-inline-flex align-items-center justify-content-center">
+                          <iconify-icon icon="solar:bell-bing-line-duotone" class="fs-7 text-warning"></iconify-icon>
+                        </div>
+                        <div>
+                          <h6 class="mb-1 fs-3">XRP</h6>
+                          <p class="mb-0 fs-2 d-flex align-items-center gap-1">
+                            High volume<i class="ti ti-info-circle"></i>
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        class="badge rounded-pill fw-medium fs-2 d-flex align-items-center bg-success-subtle text-success text-end"><i
+                          class="ti ti-trending-up"></i>1.4%</span>
+                    </li>
+                    <a href="javascript:void(0)" class="fs-4 mt-7 text-center d-block">View more markets</a>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+    </div>
+</div>
+{% endblock %}

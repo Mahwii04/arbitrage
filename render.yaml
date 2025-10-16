@@ -1,0 +1,145 @@
+# Render Blueprint - Arbitrage Scanner Infrastructure
+# This file defines all services needed for deployment
+
+services:
+  # Web Service - Flask Application
+  - type: web
+    name: arbitrage-scanner-web
+    env: python
+    plan: starter  # Free tier for testing, upgrade to 'standard' ($7/month) for production
+    region: oregon  # Choose closest region
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      pip install gunicorn
+    startCommand: |
+      flask db upgrade
+      gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --keep-alive 2 --max-requests 1000 run:app
+    healthCheckPath: /health
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_APP
+        value: run.py
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: arbitrage-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: arbitrage-redis
+          property: connectionString
+      - key: SCANNER_ENABLED
+        value: "false"  # Disable on web service, enable on worker
+      - key: SCANNER_INTERVAL
+        value: "300"
+      - key: NOTIFICATION_ENABLED
+        value: "true"
+      - key: EMAIL_NOTIFICATIONS
+        value: "false"
+      - key: MAIL_PROVIDER
+        value: "quantumautomata"
+      # Add your API keys here (optional)
+      - key: COINGECKO_API_KEY
+        value: ""
+      - key: TELEGRAM_BOT_TOKEN
+        value: "8341359056:AAGHRFzESZqukLiQkc69eWgdlKnizeZr7p8"
+      - key: META_WHATSAPP_ACCESS_TOKEN
+        value: "EAALH4Tgyu08BPoXzWwhpJf0lX3G9ZBGT4HVtZBotROcb7SjeZA8WgOEhPRNUiPlMO0ZBuEQZBEdbusWt8L0y96C7WdCGMVuCeQVx8MMyg4gTn290QJ5e8IarXmRZCAiCrsDYBpMAqElWhcyZBBZBaZBVZAjUWLyL2ondJL1EP2PEgA0gEN39fMYogBrZCrztM2b6YZCXpYtE444wnY3wbIl3TS8N09V41cuyf41JbCPUpGlWdkHgYRhQZBLLIump2ZBgIZD"
+      - key: META_WHATSAPP_PHONE_NUMBER_ID
+        value: "854285991095696"
+      - key: META_WHATSAPP_BUSINESS_ACCOUNT_ID
+        value: "818304360569960"
+      # Email configuration
+      - key: QUANTUM_MAIL_SERVER
+        value: "mail.quantumautomata.ng"
+      - key: QUANTUM_MAIL_PORT
+        value: "465"
+      - key: QUANTUM_MAIL_USE_TLS
+        value: "False"
+      - key: QUANTUM_MAIL_USE_SSL
+        value: "True"
+      - key: QUANTUM_MAIL_USERNAME
+        value: "notification@quantumautomata.ng"
+      - key: QUANTUM_MAIL_PASSWORD
+        value: "Superadmin12345."
+
+  # Background Worker - Arbitrage Scanner
+  - type: worker
+    name: arbitrage-scanner-worker
+    env: python
+    plan: starter  # Free tier: 750 hours/month
+    region: oregon
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: |
+      python -c "from app.services.background_scanner import BackgroundScanner; import time; scanner = BackgroundScanner(); print('Starting background scanner...'); scanner.start()"
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_APP
+        value: run.py
+      - key: SECRET_KEY
+        sync: false  # Will use same value as web service
+      - key: DATABASE_URL
+        fromDatabase:
+          name: arbitrage-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: arbitrage-redis
+          property: connectionString
+      - key: SCANNER_ENABLED
+        value: "true"  # Enable scanner on worker service
+      - key: SCANNER_INTERVAL
+        value: "300"  # 5 minutes
+      - key: NOTIFICATION_ENABLED
+        value: "true"
+      - key: EMAIL_NOTIFICATIONS
+        value: "false"
+      - key: MAIL_PROVIDER
+        value: "quantumautomata"
+      # API keys (same as web service)
+      - key: COINGECKO_API_KEY
+        value: ""
+      - key: TELEGRAM_BOT_TOKEN
+        value: "8341359056:AAGHRFzESZqukLiQkc69eWgdlKnizeZr7p8"
+      - key: META_WHATSAPP_ACCESS_TOKEN
+        value: "EAALH4Tgyu08BPoXzWwhpJf0lX3G9ZBGT4HVtZBotROcb7SjeZA8WgOEhPRNUiPlMO0ZBuEQZBEdbusWt8L0y96C7WdCGMVuCeQVx8MMyg4gTn290QJ5e8IarXmRZCAiCrsDYBpMAqElWhcyZBBZBaZBVZAjUWLyL2ondJL1EP2PEgA0gEN39fMYogBrZCrztM2b6YZCXpYtE444wnY3wbIl3TS8N09V41cuyf41JbCPUpGlWdkHgYRhQZBLLIump2ZBgIZD"
+      - key: META_WHATSAPP_PHONE_NUMBER_ID
+        value: "854285991095696"
+      - key: META_WHATSAPP_BUSINESS_ACCOUNT_ID
+        value: "818304360569960"
+      # Email configuration
+      - key: QUANTUM_MAIL_SERVER
+        value: "mail.quantumautomata.ng"
+      - key: QUANTUM_MAIL_PORT
+        value: "465"
+      - key: QUANTUM_MAIL_USE_TLS
+        value: "False"
+      - key: QUANTUM_MAIL_USE_SSL
+        value: "True"
+      - key: QUANTUM_MAIL_USERNAME
+        value: "notification@quantumautomata.ng"
+      - key: QUANTUM_MAIL_PASSWORD
+        value: "Superadmin12345."
+
+databases:
+  # PostgreSQL Database
+  - name: arbitrage-postgres
+    databaseName: arbitrage_db
+    user: arbitrage_user
+    plan: starter  # Free tier: 1GB storage, 90-day retention
+    region: oregon
+    
+  # Redis Cache & Session Store
+  - name: arbitrage-redis
+    plan: starter  # Free tier: 25MB memory
+    region: oregon
+    maxmemoryPolicy: allkeys-lru  # Evict least recently used keys when full
+    ipAllowList: []  # Allow access from all Render services

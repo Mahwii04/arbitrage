@@ -1,0 +1,737 @@
+{% extends "base.html" %}
+
+{% block title %}Notification Settings{% endblock %}
+
+{% block content %}
+<div class="body-wrapper-inner">
+    <div class="container-fluid">
+        <!-- Page Header -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div>
+                                <h4 class="card-title mb-0">Notification Settings</h4>
+                                <p class="card-subtitle mb-0">Configure how you want to receive arbitrage alerts</p>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-primary" onclick="testNotifications()">
+                                    <i class="ti ti-bell-ringing"></i> Test Notifications
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="saveSettings()">
+                                    <i class="ti ti-device-floppy"></i> Save Settings
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Notification Channels -->
+        <div class="row g-4 mb-4">
+            <div class="col-12">
+                <h5 class="mb-3">
+                    <i class="ti ti-bell-ringing me-2"></i>Notification Channels
+                </h5>
+                <p class="text-muted mb-4">Configure how you want to receive arbitrage alerts and notifications.</p>
+            </div>
+        </div>
+        
+        <div class="row g-4">
+            <!-- In-App Notifications -->
+            <div class="col-lg-4 col-md-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="p-3 bg-primary-subtle rounded-circle me-3">
+                                <i class="ti ti-bell text-primary fs-5"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-1">In-App Notifications</h5>
+                                <p class="card-subtitle text-muted small mb-0">Receive alerts within the application</p>
+                            </div>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="inAppEnabled" checked>
+                            <label class="form-check-label fw-medium" for="inAppEnabled">
+                                Enable in-app notifications
+                            </label>
+                        </div>
+                        
+                        <div class="mt-auto">
+                            <div class="alert alert-primary alert-dismissible fade show" role="alert" style="border: none; background: rgba(13, 110, 253, 0.1);">
+                                <i class="ti ti-info-circle me-2"></i>
+                                <small>Notifications appear as toast messages and in your notification center.</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Email Notifications -->
+            <div class="col-lg-4 col-md-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="p-3 bg-warning-subtle rounded-circle me-3">
+                                <i class="ti ti-mail text-warning fs-5"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-1">Email Notifications</h5>
+                                <p class="card-subtitle text-muted small mb-0">Receive alerts via email</p>
+                            </div>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="emailEnabled">
+                            <label class="form-check-label fw-medium" for="emailEnabled">
+                                Enable email notifications
+                            </label>
+                        </div>
+                        
+                        <div class="flex-grow-1">
+                            <div class="mb-3" id="emailSettings" style="display: none;">
+                                <label for="emailAddress" class="form-label small fw-medium">Email Address</label>
+                                <input type="email" class="form-control form-control-sm" id="emailAddress" placeholder="Enter your email address">
+                                <div class="form-text small">We'll send arbitrage alerts to this email address.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Telegram Notifications -->
+            <div class="col-lg-4 col-md-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="p-3 bg-info-subtle rounded-circle me-3">
+                                <i class="ti ti-brand-telegram text-info fs-5"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-1">Telegram Notifications</h5>
+                                <p class="card-subtitle text-muted small mb-0">Receive alerts via Telegram bot</p>
+                            </div>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="telegramEnabled">
+                            <label class="form-check-label fw-medium" for="telegramEnabled">
+                                Enable Telegram notifications
+                            </label>
+                        </div>
+                        
+                        <div class="flex-grow-1">
+                            <div id="telegramSettings" style="display: none;">
+                                <div class="mb-3">
+                                    <label for="telegramUsername" class="form-label small fw-medium">Telegram Username</label>
+                                    <input type="text" class="form-control form-control-sm" id="telegramUsername" placeholder="@username">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="telegramChatId" class="form-label small fw-medium">Chat ID</label>
+                                    <input type="text" class="form-control form-control-sm" id="telegramChatId" placeholder="Your Telegram Chat ID">
+                                    <div class="form-text small">
+                                        <a href="#" onclick="showTelegramSetup()" class="text-decoration-none">
+                                            <i class="ti ti-help-circle"></i> How to get Chat ID?
+                                        </a>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button type="button" class="btn btn-outline-info btn-sm" onclick="verifyTelegram()">
+                                        <i class="ti ti-check"></i> Verify Connection
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WhatsApp Notifications -->
+            <div class="col-lg-4 col-md-6">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="p-3 bg-success-subtle rounded-circle me-3">
+                                <i class="ti ti-brand-whatsapp text-success fs-5"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h5 class="card-title mb-1">WhatsApp Notifications</h5>
+                                <p class="card-subtitle text-muted small mb-0">Receive alerts via WhatsApp</p>
+                            </div>
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="whatsappEnabled">
+                            <label class="form-check-label fw-medium" for="whatsappEnabled">
+                                Enable WhatsApp notifications
+                            </label>
+                        </div>
+                        
+                        <div class="flex-grow-1">
+                            <div id="whatsappSettings" style="display: none;">
+                                <div class="mb-3">
+                                    <label for="whatsappUsername" class="form-label small fw-medium">WhatsApp Username</label>
+                                    <input type="text" class="form-control form-control-sm" id="whatsappUsername" placeholder="Your WhatsApp name">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="whatsappNumber" class="form-label small fw-medium">Phone Number</label>
+                                    <input type="text" class="form-control form-control-sm" id="whatsappNumber" placeholder="+1234567890">
+                                    <div class="form-text small">
+                                        <i class="ti ti-info-circle"></i> Include country code (e.g., +1 for US)
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid">
+                                    <button type="button" class="btn btn-outline-success btn-sm" onclick="verifyWhatsApp()">
+                                        <i class="ti ti-check"></i> Verify Connection
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br>
+        <br>
+        <!-- Notification Types -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-4">
+                            <i class="ti ti-settings me-2"></i>Notification Types
+                        </h5>
+                        
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="arbitrageNotifications" checked>
+                                    <label class="form-check-label" for="arbitrageNotifications">
+                                        <strong>Arbitrage Opportunities</strong>
+                                        <br><small class="text-muted">Get notified when profitable opportunities are found</small>
+                                    </label>
+                                </div>
+                                
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="priceAlertNotifications" checked>
+                                    <label class="form-check-label" for="priceAlertNotifications">
+                                        <strong>Price Alerts</strong>
+                                        <br><small class="text-muted">Receive alerts for significant price movements</small>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-6">
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="systemNotifications" checked>
+                                    <label class="form-check-label" for="systemNotifications">
+                                        <strong>System Updates</strong>
+                                        <br><small class="text-muted">Important system announcements and updates</small>
+                                    </label>
+                                </div>
+                                
+                                <div class="form-check form-switch mb-3">
+                                    <input class="form-check-input" type="checkbox" id="scannerStatusNotifications" checked>
+                                    <label class="form-check-label" for="scannerStatusNotifications">
+                                        <strong>Scanner Status</strong>
+                                        <br><small class="text-muted">Notifications about scanner health and status</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Settings -->
+        <div class="row">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-4">
+                            <i class="ti ti-adjustments me-2"></i>Thresholds & Limits
+                        </h5>
+                        
+                        <div class="mb-3">
+                            <label for="minProfitThreshold" class="form-label">Minimum Profit Threshold (%)</label>
+                            <input type="number" class="form-control" id="minProfitThreshold" value="0.5" min="0" max="100" step="0.1">
+                            <div class="form-text">Only notify for opportunities above this profit percentage</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="maxNotificationsPerHour" class="form-label">Max Notifications per Hour</label>
+                            <input type="number" class="form-control" id="maxNotificationsPerHour" value="10" min="1" max="100">
+                            <div class="form-text">Limit the number of notifications to avoid spam</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="notificationFrequency" class="form-label">Notification Frequency</label>
+                            <select class="form-select" id="notificationFrequency">
+                                <option value="immediate" selected>Immediate</option>
+                                <option value="hourly">Hourly Summary</option>
+                                <option value="daily">Daily Summary</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title mb-4">
+                            <i class="ti ti-clock me-2"></i>Quiet Hours
+                        </h5>
+                        
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="quietHoursEnabled">
+                            <label class="form-check-label" for="quietHoursEnabled">
+                                Enable quiet hours
+                            </label>
+                        </div>
+                        
+                        <div id="quietHoursSettings" style="display: none;">
+                            <div class="row">
+                                <div class="col-6">
+                                    <label for="quietHoursStart" class="form-label">Start Time</label>
+                                    <input type="time" class="form-control" id="quietHoursStart" value="22:00">
+                                </div>
+                                <div class="col-6">
+                                    <label for="quietHoursEnd" class="form-label">End Time</label>
+                                    <input type="time" class="form-control" id="quietHoursEnd" value="08:00">
+                                </div>
+                            </div>
+                            <div class="form-text mt-2">
+                                No notifications will be sent during these hours
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Notifications -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between mb-4">
+                            <h5 class="card-title mb-0">
+                                <i class="ti ti-history me-2"></i>Recent Notifications
+                            </h5>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearNotificationHistory()">
+                                <i class="ti ti-trash"></i> Clear History
+                            </button>
+                        </div>
+                        
+                        <div id="notificationHistory">
+                            <div class="text-center py-4">
+                                <i class="ti ti-bell-off fs-1 text-muted"></i>
+                                <p class="text-muted mt-2">No recent notifications</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Telegram Setup Modal -->
+<div class="modal fade" id="telegramSetupModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="ti ti-brand-telegram me-2"></i>Telegram Setup Guide
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-12">
+                        <h6>Step 1: Start a chat with our bot</h6>
+                        <p>Search for <code>@ArbitrageAlertBot</code> on Telegram and start a conversation.</p>
+                        
+                        <h6>Step 2: Get your Chat ID</h6>
+                        <p>Send the command <code>/start</code> to the bot. It will reply with your Chat ID.</p>
+                        
+                        <h6>Step 3: Enter your details</h6>
+                        <p>Copy the Chat ID and paste it in the Chat ID field above, along with your Telegram username.</p>
+                        
+                        <div class="alert alert-warning">
+                            <i class="ti ti-alert-triangle me-2"></i>
+                            <strong>Note:</strong> Make sure to keep the chat with the bot active to receive notifications.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Load notification settings on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadNotificationSettings();
+    loadNotificationHistory();
+});
+
+// Toggle email settings visibility
+document.getElementById('emailEnabled').addEventListener('change', function() {
+    const emailSettings = document.getElementById('emailSettings');
+    emailSettings.style.display = this.checked ? 'block' : 'none';
+});
+
+// Toggle telegram settings visibility
+document.getElementById('telegramEnabled').addEventListener('change', function() {
+    const telegramSettings = document.getElementById('telegramSettings');
+    telegramSettings.style.display = this.checked ? 'block' : 'none';
+});
+
+// Toggle whatsapp settings visibility
+document.getElementById('whatsappEnabled').addEventListener('change', function() {
+    const whatsappSettings = document.getElementById('whatsappSettings');
+    whatsappSettings.style.display = this.checked ? 'block' : 'none';
+});
+
+// Toggle quiet hours settings visibility
+document.getElementById('quietHoursEnabled').addEventListener('change', function() {
+    const quietHoursSettings = document.getElementById('quietHoursSettings');
+    quietHoursSettings.style.display = this.checked ? 'block' : 'none';
+});
+
+function loadNotificationSettings() {
+    fetch('/dashboard/notification-settings')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const settings = data.settings;
+                
+                // Channel settings
+                document.getElementById('inAppEnabled').checked = settings.in_app_enabled;
+                document.getElementById('emailEnabled').checked = settings.email_enabled;
+                document.getElementById('telegramEnabled').checked = settings.telegram_enabled;
+                document.getElementById('whatsappEnabled').checked = settings.whatsapp_enabled;
+                
+                // Contact information
+                if (settings.email_address) {
+                    document.getElementById('emailAddress').value = settings.email_address;
+                }
+                if (settings.telegram_username) {
+                    document.getElementById('telegramUsername').value = settings.telegram_username;
+                }
+                if (settings.telegram_chat_id) {
+                    document.getElementById('telegramChatId').value = settings.telegram_chat_id;
+                }
+                if (settings.whatsapp_username) {
+                    document.getElementById('whatsappUsername').value = settings.whatsapp_username;
+                }
+                if (settings.whatsapp_number) {
+                    document.getElementById('whatsappNumber').value = settings.whatsapp_number;
+                }
+                
+                // Notification types
+                document.getElementById('arbitrageNotifications').checked = settings.arbitrage_notifications;
+                document.getElementById('priceAlertNotifications').checked = settings.price_alert_notifications;
+                document.getElementById('systemNotifications').checked = settings.system_notifications;
+                document.getElementById('scannerStatusNotifications').checked = settings.scanner_status_notifications;
+                
+                // Advanced settings
+                document.getElementById('minProfitThreshold').value = settings.min_profit_threshold;
+                document.getElementById('maxNotificationsPerHour').value = settings.max_notifications_per_hour;
+                document.getElementById('notificationFrequency').value = settings.notification_frequency;
+                
+                // Quiet hours
+                if (settings.quiet_hours_start && settings.quiet_hours_end) {
+                    document.getElementById('quietHoursEnabled').checked = true;
+                    document.getElementById('quietHoursStart').value = settings.quiet_hours_start;
+                    document.getElementById('quietHoursEnd').value = settings.quiet_hours_end;
+                    document.getElementById('quietHoursSettings').style.display = 'block';
+                }
+                
+                // Trigger visibility updates
+                document.getElementById('emailEnabled').dispatchEvent(new Event('change'));
+                document.getElementById('telegramEnabled').dispatchEvent(new Event('change'));
+            }
+        })
+        .catch(error => {
+            console.error('Error loading notification settings:', error);
+            showToast('Error loading notification settings', 'error');
+        });
+}
+
+function saveSettings() {
+    const settings = {
+        in_app_enabled: document.getElementById('inAppEnabled').checked,
+        email_enabled: document.getElementById('emailEnabled').checked,
+        telegram_enabled: document.getElementById('telegramEnabled').checked,
+        whatsapp_enabled: document.getElementById('whatsappEnabled').checked,
+        email_address: document.getElementById('emailAddress').value,
+        telegram_username: document.getElementById('telegramUsername').value,
+        telegram_chat_id: document.getElementById('telegramChatId').value,
+        whatsapp_username: document.getElementById('whatsappUsername').value,
+        whatsapp_number: document.getElementById('whatsappNumber').value,
+        arbitrage_notifications: document.getElementById('arbitrageNotifications').checked,
+        price_alert_notifications: document.getElementById('priceAlertNotifications').checked,
+        system_notifications: document.getElementById('systemNotifications').checked,
+        scanner_status_notifications: document.getElementById('scannerStatusNotifications').checked,
+        min_profit_threshold: parseFloat(document.getElementById('minProfitThreshold').value),
+        max_notifications_per_hour: parseInt(document.getElementById('maxNotificationsPerHour').value),
+        notification_frequency: document.getElementById('notificationFrequency').value,
+        quiet_hours_enabled: document.getElementById('quietHoursEnabled').checked,
+        quiet_hours_start: document.getElementById('quietHoursEnabled').checked ? document.getElementById('quietHoursStart').value : null,
+        quiet_hours_end: document.getElementById('quietHoursEnabled').checked ? document.getElementById('quietHoursEnd').value : null
+    };
+    
+    fetch('/dashboard/notification-settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settings)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Notification settings saved successfully!', 'success');
+        } else {
+            showToast(data.message || 'Error saving settings', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving notification settings:', error);
+        showToast('Error saving notification settings', 'error');
+    });
+}
+
+function testNotifications() {
+    fetch('/dashboard/test-notifications', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Test notifications sent! Check your enabled channels.', 'success');
+        } else {
+            showToast(data.message || 'Error sending test notifications', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error sending test notifications:', error);
+        showToast('Error sending test notifications', 'error');
+    });
+}
+
+function verifyTelegram() {
+    const chatId = document.getElementById('telegramChatId').value;
+    if (!chatId) {
+        showToast('Please enter your Telegram Chat ID first', 'warning');
+        return;
+    }
+    
+    fetch('/dashboard/verify-telegram', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ chat_id: chatId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('Telegram connection verified successfully!', 'success');
+        } else {
+            showToast(data.message || 'Failed to verify Telegram connection', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error verifying Telegram:', error);
+        showToast('Error verifying Telegram connection', 'error');
+    });
+}
+
+function verifyWhatsApp() {
+    const phoneNumber = document.getElementById('whatsappNumber').value;
+    if (!phoneNumber) {
+        showToast('Please enter your WhatsApp phone number first', 'warning');
+        return;
+    }
+    
+    fetch('/dashboard/verify-whatsapp', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ phone_number: phoneNumber })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showToast('WhatsApp connection verified successfully!', 'success');
+        } else {
+            showToast(data.message || 'Failed to verify WhatsApp connection', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error verifying WhatsApp:', error);
+        showToast('Error verifying WhatsApp connection', 'error');
+    });
+}
+
+function showTelegramSetup() {
+    const modal = new bootstrap.Modal(document.getElementById('telegramSetupModal'));
+    modal.show();
+}
+
+function loadNotificationHistory() {
+    fetch('/dashboard/notification-history')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && data.notifications.length > 0) {
+            displayNotificationHistory(data.notifications);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading notification history:', error);
+    });
+}
+
+function displayNotificationHistory(notifications) {
+    const historyContainer = document.getElementById('notificationHistory');
+    
+    const historyHtml = notifications.map(notification => {
+        const statusBadge = getStatusBadge(notification.status);
+        const channelIcon = getChannelIcon(notification.channel);
+        const timeAgo = getTimeAgo(notification.created_at);
+        
+        return `
+            <div class="d-flex align-items-center justify-content-between py-2 border-bottom">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        ${channelIcon}
+                    </div>
+                    <div>
+                        <h6 class="mb-1">${notification.title}</h6>
+                        <p class="mb-0 text-muted small">${notification.message}</p>
+                    </div>
+                </div>
+                <div class="text-end">
+                    ${statusBadge}
+                    <div class="small text-muted">${timeAgo}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    historyContainer.innerHTML = historyHtml;
+}
+
+function getStatusBadge(status) {
+    const badges = {
+        'sent': '<span class="badge bg-success">Sent</span>',
+        'pending': '<span class="badge bg-warning">Pending</span>',
+        'failed': '<span class="badge bg-danger">Failed</span>',
+        'read': '<span class="badge bg-info">Read</span>'
+    };
+    return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
+}
+
+function getChannelIcon(channel) {
+    const icons = {
+        'in_app': '<i class="ti ti-bell text-primary"></i>',
+        'email': '<i class="ti ti-mail text-success"></i>',
+        'telegram': '<i class="ti ti-brand-telegram text-info"></i>'
+    };
+    return icons[channel] || '<i class="ti ti-bell text-muted"></i>';
+}
+
+function getTimeAgo(timestamp) {
+    const now = new Date();
+    // Convert UTC timestamp to local time for proper comparison
+    const utcTime = new Date(timestamp + 'Z'); // Add 'Z' to ensure it's treated as UTC
+    const diffInSeconds = Math.floor((now - utcTime) / 1000);
+    
+    if (diffInSeconds < 60) return 'Just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+}
+
+function clearNotificationHistory() {
+    if (confirm('Are you sure you want to clear all notification history?')) {
+        fetch('/dashboard/clear-notification-history', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('notificationHistory').innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="ti ti-bell-off fs-1 text-muted"></i>
+                        <p class="text-muted mt-2">No recent notifications</p>
+                    </div>
+                `;
+                showToast('Notification history cleared', 'success');
+            } else {
+                showToast(data.message || 'Error clearing history', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error clearing notification history:', error);
+            showToast('Error clearing notification history', 'error');
+        });
+    }
+}
+
+function showToast(message, type = 'info') {
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'primary'} border-0`;
+    toast.setAttribute('role', 'alert');
+    toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    `;
+    
+    // Add to toast container
+    let toastContainer = document.querySelector('.toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.appendChild(toast);
+    
+    // Show toast
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    
+    // Remove toast element after it's hidden
+    toast.addEventListener('hidden.bs.toast', () => {
+        toast.remove();
+    });
+}
+</script>
+{% endblock %}
