@@ -237,9 +237,17 @@ class BackgroundArbitrageScanner:
             
             for user in users_to_notify:
                 try:
+                    # Get user settings for filtering
+                    user_settings = {
+                        'subscription_tier': getattr(user, 'subscription_tier', 'free'),
+                        'preferred_exchanges': getattr(user, 'preferred_exchanges', []),
+                        'preferred_assets': getattr(user, 'preferred_assets', []),
+                        'min_profit_percent': getattr(user, 'min_profit_percent', 0.5)
+                    }
+                    
                     # Filter opportunities based on user preferences
                     user_opportunities = self.user_manager.filter_opportunities_for_user(
-                        user, opportunities
+                        opportunities, user_settings
                     )
                     
                     if user_opportunities:

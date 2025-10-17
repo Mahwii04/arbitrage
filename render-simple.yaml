@@ -7,8 +7,9 @@ services:
       pip install --upgrade pip
       pip install -r requirements.txt
     startCommand: |
-      flask db upgrade
-      gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 run:app
+      python -c "from app import create_app, db; app = create_app(); app.app_context().push(); db.create_all(); print('Database initialized')"
+      flask db upgrade || echo "Database upgrade failed, continuing..."
+      gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 --preload run:app
     envVars:
       - key: FLASK_ENV
         value: production
@@ -28,3 +29,5 @@ services:
         value: "false"
       - key: COINGECKO_API_KEY
         value: ""
+      - key: PYTHONPATH
+        value: "."

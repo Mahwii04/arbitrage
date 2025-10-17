@@ -3,11 +3,30 @@ import logging
 from typing import Dict, List
 from app.config.config_manager import ConfigManager
 from app.models.arbitrage import ArbitrageOpportunity
+from app.models.user import User
+from app import db
 
 class UserArbitrageManager:
     def __init__(self, config_manager: ConfigManager):
         self.config_manager = config_manager
         self.logger = logging.getLogger(__name__)
+    
+    def get_users_for_notifications(self) -> List[User]:
+        """Get all users who have enabled notifications"""
+        try:
+            # Query users who have notifications enabled
+            users = User.query.filter(
+                User.notification_settings.has(enabled=True)
+            ).all()
+            return users
+        except Exception as e:
+            self.logger.error(f"Error getting users for notifications: {e}")
+            # Fallback: return all users if notification settings table doesn't exist
+            try:
+                return User.query.all()
+            except Exception as fallback_error:
+                self.logger.error(f"Error getting all users: {fallback_error}")
+                return []
     
     def filter_opportunities_for_user(
         self,
