@@ -24,14 +24,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        fromDatabase:
-          name: arbitrage-postgres
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: arbitrage-redis
-          property: connectionString
+        value: sqlite:///arbitrage.db
       - key: SCANNER_ENABLED
         value: "false"  # Disable on web service, enable on worker
       - key: SCANNER_INTERVAL
@@ -86,14 +79,7 @@ services:
       - key: SECRET_KEY
         sync: false  # Will use same value as web service
       - key: DATABASE_URL
-        fromDatabase:
-          name: arbitrage-postgres
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: arbitrage-redis
-          property: connectionString
+        value: sqlite:///arbitrage.db
       - key: SCANNER_ENABLED
         value: "true"  # Enable scanner on worker service
       - key: SCANNER_INTERVAL
@@ -128,18 +114,3 @@ services:
         value: "notification@quantumautomata.ng"
       - key: QUANTUM_MAIL_PASSWORD
         value: "Superadmin12345."
-
-databases:
-  # PostgreSQL Database
-  - name: arbitrage-postgres
-    databaseName: arbitrage_db
-    user: arbitrage_user
-    plan: starter  # Free tier: 1GB storage, 90-day retention
-    region: oregon
-    
-  # Redis Cache & Session Store
-  - name: arbitrage-redis
-    plan: starter  # Free tier: 25MB memory
-    region: oregon
-    maxmemoryPolicy: allkeys-lru  # Evict least recently used keys when full
-    ipAllowList: []  # Allow access from all Render services
