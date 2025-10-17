@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: arbitrage-scanner
+    env: python
+    plan: free
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    startCommand: |
+      flask db upgrade
+      gunicorn --bind 0.0.0.0:$PORT --workers 1 --timeout 120 run:app
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_APP
+        value: run.py
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:///arbitrage.db
+      - key: SCANNER_ENABLED
+        value: "true"
+      - key: SCANNER_INTERVAL
+        value: "300"
+      - key: NOTIFICATION_ENABLED
+        value: "false"
+      - key: EMAIL_NOTIFICATIONS
+        value: "false"
+      - key: COINGECKO_API_KEY
+        value: ""

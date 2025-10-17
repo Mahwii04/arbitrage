@@ -6,7 +6,7 @@ services:
   - type: web
     name: arbitrage-scanner-web
     env: python
-    plan: starter  # Free tier for testing, upgrade to 'standard' ($7/month) for production
+    plan: free  # Free tier
     region: oregon  # Choose closest region
     buildCommand: |
       pip install --upgrade pip
@@ -64,7 +64,7 @@ services:
   - type: worker
     name: arbitrage-scanner-worker
     env: python
-    plan: starter  # Free tier: 750 hours/month
+    plan: free  # Free tier
     region: oregon
     buildCommand: |
       pip install --upgrade pip
