@@ -22,3 +22,6 @@
 /whatsapp_template_configs.json
 /WHATSAPP_TROUBLESHOOTING.md
 /__pycache__
+/instance/*.db
+*.db
+instance/arbitrage.db
