@@ -14,7 +14,7 @@ services:
       pip install gunicorn
     startCommand: |
       flask db upgrade
-      gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --keep-alive 2 --max-requests 1000 --pythonpath . run:app
+      gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --keep-alive 2 --max-requests 1000 wsgi:app
     healthCheckPath: /health
     envVars:
       - key: FLASK_ENV
@@ -70,6 +70,7 @@ services:
       pip install --upgrade pip
       pip install -r requirements.txt
     startCommand: |
+      flask db upgrade
       python -c "from app.services.background_scanner import BackgroundArbitrageScanner; import time; scanner = BackgroundArbitrageScanner(); print('Starting background scanner...'); scanner.start()"
     envVars:
       - key: FLASK_ENV

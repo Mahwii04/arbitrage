@@ -40,6 +40,11 @@ class BackgroundArbitrageScanner:
         
         # Initialize services within app context
         with app.app_context():
+            # Ensure database tables exist
+            from app.database import db
+            db.create_all()
+            self.logger.info("Database tables initialized")
+            
             config_manager = ConfigManager()
             self.scanner = ArbitrageScanner(config_manager)
             self.notification_manager = NotificationManager()
