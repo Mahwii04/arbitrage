@@ -14,7 +14,7 @@ services:
       pip install gunicorn
     startCommand: |
       flask db upgrade
-      gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --keep-alive 2 --max-requests 1000 run:app
+      gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --keep-alive 2 --max-requests 1000 --pythonpath . run:app
     healthCheckPath: /health
     envVars:
       - key: FLASK_ENV
