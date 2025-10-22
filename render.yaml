@@ -70,7 +70,7 @@ services:
       pip install --upgrade pip
       pip install -r requirements.txt
     startCommand: |
-      python -c "from app.services.background_scanner import BackgroundScanner; import time; scanner = BackgroundScanner(); print('Starting background scanner...'); scanner.start()"
+      python -c "from app.services.background_scanner import BackgroundArbitrageScanner; import time; scanner = BackgroundArbitrageScanner(); print('Starting background scanner...'); scanner.start()"
     envVars:
       - key: FLASK_ENV
         value: production
