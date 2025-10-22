@@ -14,9 +14,15 @@ class UserArbitrageManager:
     def get_users_for_notifications(self) -> List[User]:
         """Get all users who have enabled notifications"""
         try:
-            # Query users who have notifications enabled
-            users = User.query.filter(
-                User.notification_settings.has(enabled=True)
+            # Query users who have any notification channel enabled
+            from app.models.user import NotificationSettings
+            users = User.query.join(NotificationSettings).filter(
+                db.or_(
+                    NotificationSettings.in_app_enabled == True,
+                    NotificationSettings.email_enabled == True,
+                    NotificationSettings.telegram_enabled == True,
+                    NotificationSettings.whatsapp_enabled == True
+                )
             ).all()
             return users
         except Exception as e:
