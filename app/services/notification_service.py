@@ -290,6 +290,13 @@ class TelegramNotificationService(BaseNotificationService):
             logger.error(f"Failed to send Telegram notification to user {user_id}: {str(e)}")
             return False
     
+    def send_message(self, chat_id: str, message: str) -> bool:
+        """Public wrapper to send a simple message to a chat."""
+        if not self.bot_token:
+            logger.error("Telegram bot token not configured")
+            return False
+        return self._send_telegram_message(chat_id, message)
+    
     def _send_telegram_message(self, chat_id: str, message: str) -> bool:
         """Send message via Telegram Bot API"""
         try:
