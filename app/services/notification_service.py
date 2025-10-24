@@ -566,9 +566,13 @@ class WhatsAppNotificationService(BaseNotificationService):
         return formatted_message
     
     def verify_whatsapp_number(self, phone_number: str, user_name: str = "User") -> bool:
-        """Verify if WhatsApp number is valid by sending a welcome message"""
+        """Verify WhatsApp number by sending a template message"""
         try:
-            # Use welcome template for verification
+            # Try Meta's default 'hello_world' template first (commonly pre-approved)
+            if self.send_template_message(phone_number, template_name='hello_world', language_code='en_US'):
+                return True
+
+            # Fallback to app-specific welcome template if available
             return self._send_whatsapp_message(
                 to_number=phone_number,
                 message="Welcome message",
