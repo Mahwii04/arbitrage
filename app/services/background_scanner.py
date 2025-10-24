@@ -167,7 +167,7 @@ class BackgroundArbitrageScanner:
                                 user.notification_settings.should_send_notification('arbitrage')):
                                 try:
                                     success = self.notification_manager.send_arbitrage_notification(
-                                        user.id, opportunity
+                                        user, opportunity
                                     )
                                     if success:
                                         notification_count += 1
