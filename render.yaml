@@ -2,6 +2,14 @@
 # This file defines all services needed for deployment
 
 services:
+  # PostgreSQL Database
+  - type: pserv
+    name: arbitrage-scanner-db
+    plan: starter
+    region: oregon
+    databaseName: arbitrage_scanner
+    databaseUser: arbitrage_user
+
   # Web Service - Flask Application
   - type: web
     name: arbitrage-scanner-web
@@ -24,7 +32,9 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        value: sqlite:///arbitrage.db
+        fromDatabase:
+          name: arbitrage-scanner-db
+          property: connectionString
       - key: SCANNER_ENABLED
         value: "false"  # Disable on web service, enable on worker
       - key: SCANNER_INTERVAL
@@ -80,7 +90,9 @@ services:
       - key: SECRET_KEY
         sync: false  # Will use same value as web service
       - key: DATABASE_URL
-        value: sqlite:///arbitrage.db
+        fromDatabase:
+          name: arbitrage-scanner-db
+          property: connectionString
       - key: SCANNER_ENABLED
         value: "true"  # Enable scanner on worker service
       - key: SCANNER_INTERVAL
@@ -97,7 +109,7 @@ services:
       - key: TELEGRAM_BOT_TOKEN
         value: "8341359056:AAGHRFzESZqukLiQkc69eWgdlKnizeZr7p8"
       - key: META_WHATSAPP_ACCESS_TOKEN
-        value: "EAALH4Tgyu08BPoXzWwhpJf0lX3G9ZBGT4HVtZBotROcb7SjeZA8WgOEhPRNUiPlMO0ZBuEQZBEdbusWt8L0y96C7WdCGMVuCeQVx8MMyg4gTn290QJ5e8IarXmRZCAiCrsDYBpMAqElWhcyZBBZBaZBVZAjUWLyL2ondJL1EP2PEgA0gEN39fMYogBrZCrztM2b6YZCXpYtE444wnY3wbIl3TS8N09V41cuyf41JbCPUpGlWdkHgYRhQZBLLIump2ZBgIZD"
+        value: "EAALH4Tgyu08BPoXzWwhpJf0lX3G9ZBGT4HVtZBotROcb7SjeZA8WgOEhPRNUiPlMO0ZBuEQZBLLIump2ZBgIZD"
       - key: META_WHATSAPP_PHONE_NUMBER_ID
         value: "854285991095696"
       - key: META_WHATSAPP_BUSINESS_ACCOUNT_ID

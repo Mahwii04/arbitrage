@@ -9,9 +9,13 @@ class ProductionConfig(Config):
     DEBUG = False
     TESTING = False
     
-    # Database - Use SQLite for now, can be changed to PostgreSQL later
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///arbitrage.db'
+    # Database - Use PostgreSQL in production
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url and database_url.startswith('postgres://'):
+        # Fix for newer SQLAlchemy versions that require postgresql:// instead of postgres://
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    
+    SQLALCHEMY_DATABASE_URI = database_url or 'sqlite:///arbitrage.db'
     
     # Redis for caching and session storage
     REDIS_URL = os.environ.get('REDIS_URL') or 'redis://localhost:6379/0'
