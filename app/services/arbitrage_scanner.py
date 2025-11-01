@@ -25,6 +25,21 @@ class ArbitrageScanner:
         token: Dict
     ) -> tuple[float, Dict, Dict]:
         """Calculate dollar-based profits for different investment amounts"""
+        # Additional validation to prevent unrealistic calculations
+        if buy_price <= 0 or sell_price <= 0:
+            return 0.0, {}, {}
+        
+        # Prevent extreme price ratios that could cause unrealistic calculations
+        price_ratio = sell_price / buy_price
+        if price_ratio > 100:  # More than 10,000% difference is likely bad data
+            self.logger.warning(f"Extreme price ratio detected: {price_ratio:.2f}x between {buy_exchange} (${buy_price}) and {sell_exchange} (${sell_price})")
+            return 0.0, {}, {}
+        
+        # Prevent calculations with extremely small prices that could cause overflow
+        if buy_price < 0.00001 or sell_price < 0.00001:
+            self.logger.warning(f"Extremely small prices detected: buy=${buy_price}, sell=${sell_price}")
+            return 0.0, {}, {}
+        
         # Get exchange configurations
         exchanges = {ex['id']: ex for ex in self.config_manager.get_enabled_exchanges()}
         buy_exchange_config = exchanges.get(buy_exchange, {})
@@ -103,6 +118,17 @@ class ArbitrageScanner:
             'min_investment_required': min_investment,
             'net_profit_percent': net_profit_pct
         }
+        
+        # Final validation: prevent unrealistic profit percentages
+        if net_profit_pct > 1000:  # More than 1000% profit is likely bad data
+            self.logger.warning(f"Unrealistic profit percentage detected: {net_profit_pct:.2f}% for {buy_exchange} -> {sell_exchange}")
+            return 0.0, {}, {}
+        
+        # Validate that dollar profits are reasonable
+        max_reasonable_profit = max(investment_amounts) * 2  # Max 200% profit on largest investment
+        if any(profit > max_reasonable_profit for profit in dollar_profits.values()):
+            self.logger.warning(f"Unrealistic dollar profits detected: {dollar_profits}")
+            return 0.0, {}, {}
         
         return net_profit_pct, costs, profit_data
 

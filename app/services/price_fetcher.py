@@ -94,10 +94,15 @@ class EnhancedPriceFetcher:
                                         volume = float(ticker.get('volume', 0))
                                         
                                         # Validate price data more thoroughly
-                                        if price > 0 and price < 1000000:  # Reasonable upper bound
+                                        if price > 0 and price < 100000:  # More strict upper bound
                                             # Additional validation: check for extreme price values
-                                            if price < 0.000001:  # Very small prices might be stale/invalid
+                                            if price < 0.00001:  # Very small prices might be stale/invalid
                                                 self.logger.warning(f"Suspiciously low price for {token} on {exchange_id}: ${price}")
+                                                continue
+                                            
+                                            # Check for suspiciously high prices that might be data errors
+                                            if price > 50000:  # Most crypto assets shouldn't exceed $50k
+                                                self.logger.warning(f"Suspiciously high price for {token} on {exchange_id}: ${price}")
                                                 continue
                                             
                                             # Check volume for liquidity (optional validation)
