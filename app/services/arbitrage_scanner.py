@@ -192,6 +192,10 @@ class ArbitrageScanner:
                         token
                     )
                     
+                    # Skip if validation failed (empty profit_data)
+                    if not profit_data:
+                        continue
+                    
                     # Apply strict profit thresholds for each investment level
                     # $500 investment must yield >= $10, $1000 >= $50, $5000 >= $100, $10000 >= $500
                     meets_thresholds = (
