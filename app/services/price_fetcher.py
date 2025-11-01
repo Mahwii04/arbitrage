@@ -93,8 +93,17 @@ class EnhancedPriceFetcher:
                                         price = float(ticker['last'])
                                         volume = float(ticker.get('volume', 0))
                                         
-                                        # Validate price data
-                                        if price > 0:
+                                        # Validate price data more thoroughly
+                                        if price > 0 and price < 1000000:  # Reasonable upper bound
+                                            # Additional validation: check for extreme price values
+                                            if price < 0.000001:  # Very small prices might be stale/invalid
+                                                self.logger.warning(f"Suspiciously low price for {token} on {exchange_id}: ${price}")
+                                                continue
+                                            
+                                            # Check volume for liquidity (optional validation)
+                                            if volume < 0:
+                                                volume = 0  # Normalize negative volumes
+                                            
                                             token_results.append({
                                                 'token_id': token,
                                                 'token_symbol': ticker.get('target', '').upper(),
@@ -103,6 +112,8 @@ class EnhancedPriceFetcher:
                                                 'volume': volume,
                                                 'timestamp': time.time()
                                             })
+                                        else:
+                                            self.logger.warning(f"Invalid price range for {token} on {exchange_id}: ${price}")
                                     except (ValueError, TypeError) as e:
                                         self.logger.warning(f"Invalid price data for {token} on {exchange_id}: {e}")
                                         continue

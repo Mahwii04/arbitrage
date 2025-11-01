@@ -63,8 +63,26 @@ class ArbitrageScanner:
             net_profit_dollars = total_sell_revenue - total_buy_cost
             dollar_profits[f'profit_on_{amount}'] = max(0, net_profit_dollars)
         
-        # Calculate percentage profit (for backward compatibility)
-        net_profit_pct = (raw_price_difference / buy_price) * 100 if buy_price > 0 else 0
+        # Calculate percentage profit based on actual net profit after fees and slippage
+        # Use $1000 investment as the base for percentage calculation
+        base_investment = 1000
+        if base_investment in [500, 1000, 5000, 10000]:
+            net_profit_dollars = dollar_profits[f'profit_on_{base_investment}']
+            net_profit_pct = (net_profit_dollars / base_investment) * 100 if base_investment > 0 else 0
+        else:
+            # Fallback calculation for $1000 investment
+            units = base_investment / buy_price
+            buy_fee = base_investment * buy_fee_rate
+            buy_slippage = base_investment * slippage_rate
+            total_buy_cost = base_investment + buy_fee + buy_slippage
+            
+            sell_revenue = units * sell_price
+            sell_fee = sell_revenue * sell_fee_rate
+            sell_slippage = sell_revenue * slippage_rate
+            total_sell_revenue = sell_revenue - sell_fee - sell_slippage
+            
+            net_profit_dollars = total_sell_revenue - total_buy_cost
+            net_profit_pct = (net_profit_dollars / base_investment) * 100 if base_investment > 0 else 0
         
         # Calculate minimum investment required (considering fees and slippage)
         min_investment = max(10, buy_price * (buy_fee_rate + slippage_rate) * 100)  # At least $10 or enough to cover costs

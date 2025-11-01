@@ -226,7 +226,29 @@ class BackgroundArbitrageScanner:
             ArbitrageOpportunity.is_active == True
         ).first()
         
-        return existing
+        # If we found an exact match, check if the profit difference is significant
+        if existing:
+            # Consider opportunities as duplicates if profit difference is less than 0.5%
+            profit_difference = abs(opportunity.net_profit_percent - existing.net_profit_percent)
+            if profit_difference < 0.5:
+                self.logger.debug(f"Skipping similar opportunity: {opportunity.token_symbol} "
+                                f"{opportunity.buy_exchange} -> {opportunity.sell_exchange} "
+                                f"(profit diff: {profit_difference:.2f}%)")
+                return existing
+            else:
+                # Update the existing opportunity with new data if profit is significantly different
+                existing.net_profit_percent = opportunity.net_profit_percent
+                existing.raw_price_difference = opportunity.raw_price_difference
+                existing.profit_on_500 = opportunity.profit_on_500
+                existing.profit_on_1000 = opportunity.profit_on_1000
+                existing.profit_on_5000 = opportunity.profit_on_5000
+                existing.profit_on_10000 = opportunity.profit_on_10000
+                existing.timestamp = opportunity.timestamp
+                db.session.commit()
+                self.logger.debug(f"Updated existing opportunity with new profit data: {opportunity.token_symbol}")
+                return existing
+        
+        return None
     
     def _send_notifications(self, opportunities):
         """Send notifications to users for new arbitrage opportunities"""

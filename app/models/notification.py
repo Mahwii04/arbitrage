@@ -149,8 +149,21 @@ class NotificationPreference(db.Model):
             profit_percent < self.min_profit_threshold):
             return False
         
+        # Check rate limiting - count notifications sent in the last hour
+        from datetime import datetime, timedelta
+        one_hour_ago = datetime.utcnow() - timedelta(hours=1)
+        
+        recent_notifications_count = Notification.query.filter(
+            Notification.user_id == self.user_id,
+            Notification.type == notification_type,
+            Notification.sent_at >= one_hour_ago,
+            Notification.status == NotificationStatus.SENT
+        ).count()
+        
+        if recent_notifications_count >= self.max_notifications_per_hour:
+            return False
+        
         # TODO: Add quiet hours check
-        # TODO: Add rate limiting check
         
         return True
     
