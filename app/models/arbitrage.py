@@ -43,7 +43,7 @@ class ArbitrageOpportunity(db.Model):
             'sell_price': self.sell_price,
             'raw_spread_percent': self.raw_spread_percent,
             'net_profit_percent': self.net_profit_percent,
-            'timestamp': self.timestamp.isoformat(),
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
             'is_active': self.is_active,
             'buy_fee': self.buy_fee,
             'sell_fee': self.sell_fee,

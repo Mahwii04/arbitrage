@@ -330,7 +330,7 @@ def get_notification_history():
                 'message': notification.message,
                 'channel': notification.channel,
                 'status': notification.status,
-                'created_at': notification.created_at.isoformat(),
+                'created_at': notification.created_at.isoformat() if notification.created_at else None,
                 'read_at': notification.read_at.isoformat() if notification.read_at else None
             } for notification in notifications]
             
