@@ -2,315 +2,284 @@
 
 {% block content %}
 <div class="body-wrapper-inner">
-    <div class="container-fluid">
-          <!--  Row 1 -->
-          <div class="row">
-            <div class="col-lg-8 d-flex align-items-strech">
-              <div class="card w-100">
-                <div class="card-body">
-                  <div class="d-sm-flex d-block align-items-center justify-content-between mb-9">
-                    <div class="mb-3 mb-sm-0">
-                      <h5 class="card-title fw-semibold">Arbitrage Opportunities</h5>
-                    </div>
-                    <div>
-                      <select class="form-select">
-                        <option value="1">Last 24 Hours</option>
-                        <option value="2">Last Week</option>
-                        <option value="3">Last Month</option>
-                        <option value="4">All Time</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div id="arbitrage-chart"></div>
-                </div>
+  <div class="container-fluid">
+    <!-- Top Status Row -->
+    <div class="row">
+      <!-- Scan Stats Card -->
+      <div class="col-lg-4">
+        <div class="card w-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="card-title fw-semibold">Scanner Status</h5>
+              <button id="refresh-dashboard" class="btn btn-sm btn-outline-primary">
+                <i class="ti ti-refresh"></i> Refresh
+              </button>
+            </div>
+            <div class="row">
+              <div class="col-6">
+                <p class="text-muted mb-1">Total Scans (24h)</p>
+                <h4 id="stat-total-scans" class="mb-0">0</h4>
+              </div>
+              <div class="col-6">
+                <p class="text-muted mb-1">Opportunities Found</p>
+                <h4 id="stat-opportunities" class="mb-0">0</h4>
               </div>
             </div>
-            <div class="col-lg-4">
-              <div class="row">
-                <div class="col-lg-12">
-                  <div class="card bg-danger-subtle shadow-none w-100">
-                    <div class="card-body">
-                      <div class="d-flex mb-10 pb-1 justify-content-between align-items-center">
-                        <div class="d-flex align-items-center gap-6">
-                          <div
-                            class="rounded-circle-shape bg-danger px-3 py-2 rounded-pill d-inline-flex align-items-center justify-content-center">
-                            <iconify-icon icon="solar:users-group-rounded-bold-duotone"
-                              class="fs-7 text-white"></iconify-icon>
-                          </div>
-                          <h6 class="mb-0 fs-4 fw-medium text-muted">
-                            Active Opportunities
-                          </h6>
-                        </div>
-                        <div class="dropdown dropstart">
-                          <a href="javascript:void(0)" class="text-muted" id="dropdownMenuButton"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="ti ti-refresh fs-6"></i>
-                          </a>
-                          <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                            <li>
-                              <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
-                                  class="fs-4 ti ti-refresh"></i>Refresh Now</a>
-                            </li>
-                            <li>
-                              <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
-                                  class="fs-4 ti ti-settings"></i>Settings</a>
-                            </li>
-                          </ul>
-                        </div>
-                      </div>
-                      <div class="row align-items-end justify-content-between">
-                        <div class="col-5">
-                          <h2 class="mb-6 fs-8">12</h2>
-                          <span class="badge rounded-pill border border-success fw-bold text-success fs-2 py-1">4 new
-                            today</span>
-                        </div>
-                        <div class="col-5">
-                          <div id="total-followers" class="rounded-bars"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div class="col-lg-12">
-                  <div class="card bg-secondary-subtle shadow-none w-100">
-                    <div class="card-body">
-                      <div class="d-flex mb-10 pb-1 justify-content-between align-items-center">
-                        <div class="d-flex align-items-center gap-6">
-                          <div
-                            class="rounded-circle-shape bg-secondary px-3 py-2 rounded-pill d-inline-flex align-items-center justify-content-center">
-                            <iconify-icon icon="solar:wallet-2-line-duotone" class="fs-7 text-white"></iconify-icon>
-                          </div>
-                          <h6 class="mb-0 fs-4 fw-medium text-muted">
-                            Potential Profit
-                          </h6>
-                        </div>
-                        <div class="dropdown dropstart">
-                          <a href="javascript:void(0)" class="text-muted" id="dropdownMenuButton"
-                            data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="ti ti-calculator fs-6"></i>
-                          </a>
-                          <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                            <li>
-                              <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
-                                  class="fs-4 ti ti-adjustments"></i>Adjust Fees</a>
-                            </li>
-                            <li>
-                              <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
-                                  class="fs-4 ti ti-settings"></i>Settings</a>
-                            </li>
-                          </ul>
-                        </div>
-                      </div>
-                      <div class="row align-items-center justify-content-between pt-4">
-                        <div class="col-5">
-                          <h2 class="mb-6 fs-8 text-nowrap">$1,245</h2>
-                          <span class="badge rounded-pill border border-success fw-bold text-success fs-2 py-1">2.5% avg
-                            spread</span>
-                        </div>
-                        <div class="col-5">
-                          <div id="total-income"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+            <div class="row mt-3">
+              <div class="col-6">
+                <p class="text-muted mb-1">Avg Scan Duration</p>
+                <h6 id="stat-avg-duration" class="mb-0">—</h6>
+              </div>
+              <div class="col-6">
+                <p class="text-muted mb-1">Last Scan</p>
+                <h6 id="stat-last-scan" class="mb-0">—</h6>
               </div>
             </div>
           </div>
-          <!-- Opportunities and Market Overview Row -->
-          <div class="row mt-4">
-            <div class="col-xxl-7 col-xl-7 col-lg-12 d-flex align-items-stretch">
-              <div class="card w-100 overflow-hidden">
-                <div class="card-body pb-0">
-                  <h4 class="fs-4 mb-1 card-title">Latest Opportunities</h4>
-                  <p class="mb-0 card-subtitle">Across {{ exchanges_count|default('all') }} exchanges</p>
-                </div>
-                <div class="table-responsive mt-3">
-                  <table class="table text-nowrap mb-0 align-middle table-hover">
-                    <thead class="fs-4">
-                      <tr>
-                        <th class="fs-3 px-4">Asset</th>
-                        <th class="fs-3">Exchanges</th>
-                        <th class="fs-3">Profit %</th>
-                        <th class="fs-3">Status</th>
-                        <th class="fs-3"></th>
-                      </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td>
-                            <div class="d-flex align-items-center">
-                              <div class="token-icon d-flex align-items-center justify-content-center rounded-circle bg-light" style="width: 40px; height: 40px;">
-                                <span class="fw-bold">BTC</span>
-                              </div>
-                              <div class="ms-3">
-                                <h6 class="fs-3 mb-0">
-                                  Bitcoin (BTC/USD)
-                                </h6>
-                                <small class="text-muted">Updated 2 min ago</small>
-                              </div>
-                            </div>
-                          </td>
-                          <td>
-                            <h5 class="mb-0 fs-4">
-                              Binance → Kraken
-                            </h5>
-                            <p class="text-muted mb-2">Volume: $2.5M</p>
-                            <div class="progress bg-light w-100" style="height: 4px">
-                              <div class="progress-bar bg-success" role="progressbar" style="width: 85%"></div>
-                            </div>
-                          </td>
-                          <td>
-                            <span class="badge rounded-pill fs-2 fw-medium bg-success-subtle text-success">2.4%</span>
-                          </td>
-                          <td>
-                            <div class="dropdown dropstart">
-                              <a href="javascript:void(0)" class="text-muted" id="dropdownMenuButton"
-                                data-bs-toggle="dropdown" aria-expanded="false">
-                                <i class="ti ti-dots-vertical fs-6"></i>
-                              </a>
-                              <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                                <li>
-                                  <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
-                                      class="fs-4 ti ti-plus"></i>Add</a>
-                                </li>
-                                <li>
-                                  <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
-                                      class="fs-4 ti ti-edit"></i>Edit</a>
-                                </li>
-                                <li>
-                                  <a class="dropdown-item d-flex align-items-center gap-3" href="javascript:void(0)"><i
-                                      class="fs-4 ti ti-trash"></i>Delete</a>
-                                </li>
-                              </ul>
-                            </div>
-                          </td>
-                        </tr>
-                        
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
+        </div>
+      </div>
+
+      <!-- Subscription Card -->
+      <div class="col-lg-4">
+        <div class="card w-100">
+          <div class="card-body">
+            <h5 class="card-title fw-semibold">Subscription</h5>
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <p class="text-muted mb-1">Tier</p>
+                <h6 id="sub-tier" class="mb-0">—</h6>
+              </div>
+              <div>
+                <p class="text-muted mb-1">Scans This Month</p>
+                <h6 id="sub-scans" class="mb-0">0 / 0</h6>
               </div>
             </div>
-            <!-- Market Overview Column -->
-            <div class="col-xxl-5 col-xl-5 col-lg-12 d-flex align-items-stretch">
-              <div class="card w-100">
-                <div class="card-body">
-                  <div class="d-flex mb-3 justify-content-between align-items-center">
-                    <h4 class="mb-0 card-title">Market Overview</h4>
-                    <div class="dropdown">
-                      <button id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false"
-                        class="rounded-circle btn-transparent rounded-circle btn-sm px-1 btn shadow-none">
-                        <i class="ti ti-settings fs-6"></i>
-                      </button>
-                      <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton1">
-                        <li><a class="dropdown-item" href="javascript:void(0)">Update Now</a></li>
-                        <li>
-                          <a class="dropdown-item" href="javascript:void(0)">Change Exchanges</a>
-                        </li>
-                        <li>
-                          <a class="dropdown-item" href="javascript:void(0)">Notification Settings</a>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                  <ul class="list-unstyled mb-0">
-                    <li class="d-flex align-items-center justify-content-between py-10 border-bottom">
-                      <div class="d-flex align-items-center">
-                        <div
-                          class="rounded-circle-shape bg-primary-subtle me-3 rounded-pill d-inline-flex align-items-center justify-content-center">
-                          <iconify-icon icon="solar:card-line-duotone" class="fs-7 text-primary"></iconify-icon>
-                        </div>
-                        <div>
-                          <h6 class="mb-1 fs-3">Bitcoin (BTC)</h6>
-                          <p class="mb-0 fs-2 d-flex align-items-center gap-1">
-                            High volatility<i class="ti ti-info-circle"></i>
-                          </p>
-                        </div>
-                      </div>
-                      <span
-                        class="badge rounded-pill fw-medium fs-2 d-flex align-items-center bg-success-subtle text-success text-end"><i
-                          class="ti ti-trending-up"></i>3.2%</span>
-                    </li>
-
-                    <li class="d-flex align-items-center justify-content-between py-10 border-bottom">
-                      <div class="d-flex align-items-center">
-                        <div
-                          class="rounded-circle-shape bg-primary-subtle me-3 rounded-pill d-inline-flex align-items-center justify-content-center">
-                          <iconify-icon icon="solar:wallet-2-line-duotone" class="fs-7 text-primary"></iconify-icon>
-                        </div>
-                        <div>
-                          <h6 class="mb-1 fs-3">Ethereum (ETH)</h6>
-                          <p class="mb-0 fs-2 d-flex align-items-center gap-1">
-                            Moderate spread<i class="ti ti-info-circle"></i>
-                          </p>
-                        </div>
-                      </div>
-                      <span
-                        class="badge rounded-pill fw-medium fs-2 d-flex align-items-center bg-success-subtle text-success text-end"><i
-                          class="ti ti-trending-up"></i>1.8%</span>
-                    </li>
-
-                    <li class="d-flex align-items-center justify-content-between py-10 border-bottom">
-                      <div class="d-flex align-items-center">
-                        <div
-                          class="rounded-circle-shape bg-success-subtle me-3 rounded-pill d-inline-flex align-items-center justify-content-center">
-                          <iconify-icon icon="solar:course-up-line-duotone" class="fs-7 text-success"></iconify-icon>
-                        </div>
-                        <div>
-                          <h6 class="mb-1 fs-3">USDT/USDC</h6>
-                          <p class="mb-0 fs-2 d-flex align-items-center gap-1">
-                            Stable opportunity<i class="ti ti-info-circle"></i>
-                          </p>
-                        </div>
-                      </div>
-                      <span
-                        class="badge rounded-pill fw-medium fs-2 d-flex align-items-center bg-success-subtle text-success text-end"><i
-                          class="ti ti-trending-up"></i>0.5%</span>
-                    </li>
-
-                    <li class="d-flex align-items-center justify-content-between py-10 border-bottom">
-                      <div class="d-flex align-items-center">
-                        <div
-                          class="rounded-circle-shape bg-info-subtle me-3 rounded-pill d-inline-flex align-items-center justify-content-center">
-                          <iconify-icon icon="solar:graph-new-up-line-duotone" class="fs-7 text-info"></iconify-icon>
-                        </div>
-                        <div>
-                          <h6 class="mb-1 fs-3">Solana (SOL)</h6>
-                          <p class="mb-0 fs-2 d-flex align-items-center gap-1">
-                            New opportunity<i class="ti ti-info-circle"></i>
-                          </p>
-                        </div>
-                      </div>
-                      <span
-                        class="badge rounded-pill fw-medium fs-2 d-flex align-items-center bg-success-subtle text-success text-end"><i
-                          class="ti ti-trending-up"></i>2.1%</span>
-                    </li>
-
-                    <li class="d-flex align-items-center justify-content-between py-10 border-bottom">
-                      <div class="d-flex align-items-center">
-                        <div
-                          class="rounded-circle-shape bg-warning-subtle me-3 rounded-pill d-inline-flex align-items-center justify-content-center">
-                          <iconify-icon icon="solar:bell-bing-line-duotone" class="fs-7 text-warning"></iconify-icon>
-                        </div>
-                        <div>
-                          <h6 class="mb-1 fs-3">XRP</h6>
-                          <p class="mb-0 fs-2 d-flex align-items-center gap-1">
-                            High volume<i class="ti ti-info-circle"></i>
-                          </p>
-                        </div>
-                      </div>
-                      <span
-                        class="badge rounded-pill fw-medium fs-2 d-flex align-items-center bg-success-subtle text-success text-end"><i
-                          class="ti ti-trending-up"></i>1.4%</span>
-                    </li>
-                    <a href="javascript:void(0)" class="fs-4 mt-7 text-center d-block">View more markets</a>
-                  </ul>
-                </div>
-              </div>
+            <div class="mt-3">
+              <p class="text-muted mb-1">Features</p>
+              <div id="sub-features" class="d-flex flex-wrap gap-2"></div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Notification Channels -->
+      <div class="col-lg-4">
+        <div class="card w-100">
+          <div class="card-body">
+            <h5 class="card-title fw-semibold">Notifications</h5>
+            <div class="d-flex align-items-center gap-3">
+              <span id="notif-web" class="badge rounded-pill">Web</span>
+              <span id="notif-email" class="badge rounded-pill">Email</span>
+              <span id="notif-telegram" class="badge rounded-pill">Telegram</span>
+              <span id="notif-whatsapp" class="badge rounded-pill">WhatsApp</span>
+            </div>
+            <small class="text-muted d-block mt-2">Manage in <a href="{{ url_for('dashboard.notification') }}">Notification Settings</a></small>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- Best Opportunity + Latest Table -->
+    <div class="row mt-4">
+      <!-- Best Opportunity Card -->
+      <div class="col-xxl-5 col-xl-5 col-lg-12 d-flex align-items-stretch">
+        <div class="card w-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h4 class="card-title">Best Opportunity</h4>
+              <a href="{{ url_for('dashboard.opportunities') }}" class="btn btn-sm btn-outline-secondary">View All</a>
+            </div>
+            <div id="best-opportunity">
+              <div class="text-muted">No active opportunities yet. <a href="{{ url_for('dashboard.configure') }}">Configure your scanner</a>.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Latest Opportunities Table -->
+      <div class="col-xxl-7 col-xl-7 col-lg-12 d-flex align-items-stretch">
+        <div class="card w-100 overflow-hidden">
+          <div class="card-body pb-0">
+            <h4 class="fs-4 mb-1 card-title">Latest Opportunities</h4>
+            <p class="mb-0 card-subtitle" id="exchanges-count">Across — exchanges</p>
+          </div>
+          <div class="table-responsive mt-3">
+            <table class="table text-nowrap mb-0 align-middle table-hover">
+              <thead class="fs-4">
+                <tr>
+                  <th class="fs-3 px-4">Asset</th>
+                  <th class="fs-3">Exchanges</th>
+                  <th class="fs-3">Profit %</th>
+                  <th class="fs-3">Profit on $1000</th>
+                  <th class="fs-3">Updated</th>
+                </tr>
+              </thead>
+              <tbody id="opportunities-tbody">
+                <tr><td colspan="5" class="text-muted">No data yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Exchange Statistics -->
+    <div class="row mt-4">
+      <div class="col-lg-12 d-flex align-items-stretch">
+        <div class="card w-100">
+          <div class="card-body">
+            <div class="d-flex mb-3 justify-content-between align-items-center">
+              <h4 class="mb-0 card-title">Exchange Stats</h4>
+            </div>
+            <div id="exchange-stats" class="row g-3">
+              <div class="col-12 text-muted">No exchange stats available.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    function fmtPercent(val) { return (val ?? 0).toFixed(2) + '%'; }
+    function fmtMoney(val) { return '$' + (val ?? 0).toFixed(2); }
+    function fmtTime(ts) { if (!ts) return '—'; const d = new Date(ts); return d.toLocaleString(); }
+
+    async function loadDashboardData() {
+      try {
+        const resp = await fetch('/dashboard/data');
+        const json = await resp.json();
+        if (!json.success) return;
+        const data = json.data;
+
+        // Scan stats
+        const stats = data.scan_stats || {};
+        document.getElementById('stat-total-scans').textContent = stats.total_scans ?? 0;
+        document.getElementById('stat-opportunities').textContent = stats.opportunities_found ?? 0;
+        const avg = stats.avg_scan_duration ? (stats.avg_scan_duration.toFixed(2) + 's') : '—';
+        document.getElementById('stat-avg-duration').textContent = avg;
+        document.getElementById('stat-last-scan').textContent = fmtTime(stats.last_scan_time);
+
+        // Subscription
+        const sub = data.subscription_info || {};
+        document.getElementById('sub-tier').textContent = sub.tier_name || '—';
+        document.getElementById('sub-scans').textContent = `${sub.scans_used ?? 0} / ${sub.scans_limit ?? 0}`;
+        const featuresWrap = document.getElementById('sub-features');
+        featuresWrap.innerHTML = '';
+        (sub.available_features || []).forEach(f => {
+          const span = document.createElement('span');
+          span.className = 'badge bg-primary-subtle text-primary';
+          span.textContent = f;
+          featuresWrap.appendChild(span);
+        });
+
+        // Notification channels
+        const notif = (data.user_info && data.user_info.notification_channels) || {};
+        setBadgeState('notif-web', notif.webapp);
+        setBadgeState('notif-email', notif.email);
+        setBadgeState('notif-telegram', notif.telegram);
+        setBadgeState('notif-whatsapp', notif.whatsapp);
+
+        // Active opportunities
+        const opps = data.active_opportunities || [];
+        renderBestOpportunity(opps);
+        renderOpportunitiesTable(opps);
+
+        // Exchange stats
+        renderExchangeStats(data.exchange_stats || {});
+
+        // Exchanges count subtitle
+        const exCount = Object.keys(data.exchange_stats || {}).length;
+        document.getElementById('exchanges-count').textContent = `Across ${exCount} exchanges`;
+      } catch (e) {
+        console.error('Failed loading dashboard data', e);
+      }
+    }
+
+    function setBadgeState(id, enabled) {
+      const el = document.getElementById(id);
+      el.className = 'badge rounded-pill ' + (enabled ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary');
+    }
+
+    function renderBestOpportunity(opps) {
+      const container = document.getElementById('best-opportunity');
+      if (!opps.length) { container.innerHTML = '<div class="text-muted">No active opportunities yet. <a href="{{ url_for('dashboard.configure') }}">Configure your scanner</a>.</div>'; return; }
+      const best = opps.reduce((a, b) => (a.net_profit_percent > b.net_profit_percent ? a : b));
+      container.innerHTML = `
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <h5 class="mb-1">${best.token_symbol}</h5>
+            <div class="text-muted">${best.buy_exchange} → ${best.sell_exchange}</div>
+            <div class="mt-2">
+              <span class="badge bg-success-subtle text-success">${fmtPercent(best.net_profit_percent)} net</span>
+              <span class="badge bg-primary-subtle text-primary">${fmtMoney(best.profit_on_1000)} on $1000</span>
+            </div>
+          </div>
+          <div class="text-end">
+            <div class="fw-semibold">Buy: $${(best.buy_price ?? 0).toFixed(6)}</div>
+            <div class="fw-semibold">Sell: $${(best.sell_price ?? 0).toFixed(6)}</div>
+          </div>
+        </div>`;
+    }
+
+    function renderOpportunitiesTable(opps) {
+      const tbody = document.getElementById('opportunities-tbody');
+      tbody.innerHTML = '';
+      if (!opps.length) { tbody.innerHTML = '<tr><td colspan="5" class="text-muted">No data yet.</td></tr>'; return; }
+      opps.slice(0, 10).forEach(o => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <div class="d-flex align-items-center">
+              <div class="token-icon d-flex align-items-center justify-content-center rounded-circle bg-light" style="width: 40px; height: 40px;">
+                <span class="fw-bold">${o.token_symbol}</span>
+              </div>
+              <div class="ms-3">
+                <h6 class="fs-3 mb-0">${o.token_symbol}</h6>
+              </div>
+            </div>
+          </td>
+          <td>
+            <h5 class="mb-0 fs-4">${o.buy_exchange} → ${o.sell_exchange}</h5>
+          </td>
+          <td>
+            <span class="badge rounded-pill fs-2 fw-medium ${o.net_profit_percent >= 1 ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary'}">${fmtPercent(o.net_profit_percent)}</span>
+          </td>
+          <td>${fmtMoney(o.profit_on_1000)}</td>
+          <td>${fmtTime(o.timestamp)}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function renderExchangeStats(stats) {
+      const wrap = document.getElementById('exchange-stats');
+      wrap.innerHTML = '';
+      const keys = Object.keys(stats);
+      if (!keys.length) {
+        wrap.innerHTML = '<div class="col-12 text-muted">No exchange stats available.</div>';
+        return;
+      }
+      keys.forEach(id => {
+        const s = stats[id];
+        const col = document.createElement('div');
+        col.className = 'col-md-4';
+        col.innerHTML = `
+          <div class="p-3 border rounded">
+            <div class="d-flex justify-content-between align-items-center">
+              <h6 class="mb-0">${s.name}</h6>
+              <span class="badge bg-primary-subtle text-primary">${s.active_opportunities} active</span>
+            </div>
+            <div class="mt-2 text-muted">Avg Profit: ${fmtPercent(s.avg_profit)}</div>
+            <div class="mt-1">Best: ${s.best_pair ?? '—'}</div>
+          </div>`;
+        wrap.appendChild(col);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      loadDashboardData();
+      document.getElementById('refresh-dashboard').addEventListener('click', loadDashboardData);
+    });
+  </script>
 </div>
 {% endblock %}

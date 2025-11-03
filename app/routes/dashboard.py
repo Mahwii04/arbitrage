@@ -20,6 +20,64 @@ def index():
     """Render the main dashboard page"""
     return render_template('dashboard/index.html')
 
+@bp.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    """Render and update user profile information"""
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        email = request.form.get('email', '').strip()
+        new_password = request.form.get('new_password', '')
+        confirm_password = request.form.get('confirm_password', '')
+
+        # Basic validation
+        if not username or not email:
+            flash('Username and email are required.', 'error')
+            return redirect(url_for('dashboard.profile'))
+
+        if new_password and new_password != confirm_password:
+            flash('New password and confirmation do not match.', 'error')
+            return redirect(url_for('dashboard.profile'))
+
+        try:
+            # Ensure unique username/email if changed
+            if username != current_user.username:
+                existing_username = User.query.filter_by(username=username).first()
+                if existing_username and existing_username.id != current_user.id:
+                    flash('Username is already taken.', 'error')
+                    return redirect(url_for('dashboard.profile'))
+
+            if email != current_user.email:
+                existing_email = User.query.filter_by(email=email).first()
+                if existing_email and existing_email.id != current_user.id:
+                    flash('Email is already registered.', 'error')
+                    return redirect(url_for('dashboard.profile'))
+
+            # Apply updates
+            current_user.username = username
+            current_user.email = email
+
+            if new_password:
+                from werkzeug.security import generate_password_hash
+                current_user.password_hash = generate_password_hash(new_password)
+
+            db.session.commit()
+            flash('Profile updated successfully.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating profile: {str(e)}', 'error')
+
+        return redirect(url_for('dashboard.profile'))
+
+    # GET: render profile page with current user info
+    return render_template('dashboard/profile.html', user=current_user)
+
+@bp.route('/subscription')
+@login_required
+def subscription():
+    """Render the subscription management page (frontend only for now)"""
+    return render_template('dashboard/subscription.html')
+
 @bp.route('/configure')
 @login_required
 def configure():

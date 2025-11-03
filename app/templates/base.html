@@ -78,10 +78,19 @@
       z-index: 1000;
     }
     
-    /* Ensure content is properly spaced */
-    .body-wrapper-inner {
-      padding: 2px;
+    /* Reduce excess space below header */
+    .body-wrapper > .container-fluid { padding-top: 24px !important; }
+
+    /* Fix nested container top padding applied by theme on mobile */
+    .body-wrapper .body-wrapper-inner .container-fluid { padding-top: 16px !important; }
+
+    @media (max-width: 992px) {
+      .body-wrapper > .container-fluid { padding-top: 16px !important; }
+      .body-wrapper .body-wrapper-inner .container-fluid { padding-top: 8px !important; }
     }
+
+    /* Keep inner wrapper tidy */
+    .body-wrapper-inner { padding: 0; }
   </style>
 </head>
 
@@ -131,7 +140,7 @@
             </a>
           </li>
           <li class="sidebar-item">
-            <a class="sidebar-link" href="#" aria-expanded="false">
+            <a class="sidebar-link" href="{{ url_for('dashboard.subscription') }}" aria-expanded="false">
               <iconify-icon icon="solar:card-broken"></iconify-icon>
               <span class="hide-menu">Subscription</span>
             </a>
@@ -156,44 +165,46 @@
               <i class="ti ti-menu-2"></i>
             </a>
           </li>
-          <li class="nav-item dropdown">
-            <a class="nav-link" href="javascript:void(0)" id="drop1" data-bs-toggle="dropdown" aria-expanded="false">
-              <iconify-icon icon="solar:bell-linear" class="fs-6"></iconify-icon>
-              <div class="notification bg-primary rounded-circle" id="notification-badge" style="display: none;"></div>
-            </a>
-            <div class="dropdown-menu dropdown-menu-animate-up" aria-labelledby="drop1" style="width: 350px;">
-              <div class="message-body">
-                <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
-                  <h6 class="mb-0">Notifications</h6>
-                  <button class="btn btn-sm btn-outline-primary" onclick="markAllAsRead()">
-                    <i class="ti ti-check"></i> Mark All Read
-                  </button>
-                </div>
-                <div id="notification-list" class="notification-scroll" style="max-height: 300px; overflow-y: auto;">
-                  <div class="text-center p-4 text-muted" id="no-notifications">
-                    <i class="ti ti-bell-off fs-4 mb-2"></i>
-                    <p class="mb-0">No notifications yet</p>
-                    <small>Your notifications will appear here once your scanner starts finding opportunities.</small>
-                  </div>
-                </div>
-                <div class="border-top p-2">
-                  <a href="{{ url_for('dashboard.notification') }}" class="btn btn-sm btn-primary w-100">
-                    <i class="ti ti-settings"></i> Notification Settings
-                  </a>
-                </div>
-              </div>
-            </div>
-          </li>
+          
         </ul>
         <div class="navbar-collapse justify-content-end px-0" id="navbarNav">
           <ul class="navbar-nav flex-row ms-auto align-items-center justify-content-end">
+            <!-- Notification bell moved next to profile icon -->
+            <li class="nav-item dropdown me-2">
+              <a class="nav-link" href="javascript:void(0)" id="drop1" data-bs-toggle="dropdown" aria-expanded="false">
+                <iconify-icon icon="solar:bell-linear" class="fs-6"></iconify-icon>
+                <div class="notification bg-primary rounded-circle" id="notification-badge" style="display: none;"></div>
+              </a>
+              <div class="dropdown-menu dropdown-menu-end dropdown-menu-animate-up" aria-labelledby="drop1" style="width: 350px;">
+                <div class="message-body">
+                  <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+                    <h6 class="mb-0">Notifications</h6>
+                    <button class="btn btn-sm btn-outline-primary" onclick="markAllAsRead()">
+                      <i class="ti ti-check"></i> Mark All Read
+                    </button>
+                  </div>
+                  <div id="notification-list" class="notification-scroll" style="max-height: 300px; overflow-y: auto;">
+                    <div class="text-center p-4 text-muted" id="no-notifications">
+                      <i class="ti ti-bell-off fs-4 mb-2"></i>
+                      <p class="mb-0">No notifications yet</p>
+                      <small>Your notifications will appear here once your scanner starts finding opportunities.</small>
+                    </div>
+                  </div>
+                  <div class="border-top p-2">
+                    <a href="{{ url_for('dashboard.notification') }}" class="btn btn-sm btn-primary w-100">
+                      <i class="ti ti-settings"></i> Notification Settings
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </li>
             <li class="nav-item dropdown">
               <a class="nav-link" href="javascript:void(0)" id="drop2" data-bs-toggle="dropdown" aria-expanded="false">
                 <img src="{{ url_for('static', filename='images/profile/user-1.jpg') }}" alt="Profile" width="35" height="35" class="rounded-circle">
               </a>
               <div class="dropdown-menu dropdown-menu-end dropdown-menu-animate-up" aria-labelledby="drop2">
                 <div class="message-body">
-                  <a href="javascript:void(0)" class="d-flex align-items-center gap-2 dropdown-item">
+                  <a href="{{ url_for('dashboard.profile') }}" class="d-flex align-items-center gap-2 dropdown-item">
                     <i class="ti ti-user fs-6"></i>
                     <p class="mb-0 fs-3">My Profile</p>
                   </a>
