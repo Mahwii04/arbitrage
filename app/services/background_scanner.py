@@ -1,116 +1,118 @@
+"""Background arbitrage scanner service with improved deduplication"""
 import logging
+import threading
 import time
-from threading import Thread, Event
-from typing import Optional
 from datetime import datetime, timedelta
-
-from app.models.arbitrage import ArbitrageOpportunity
-from app.models.user import User
+from typing import List, Optional, Set, Tuple
+from flask import Flask
+from app.config.config_manager import ConfigManager
 from app.services.arbitrage_scanner import ArbitrageScanner
 from app.services.notification_service import NotificationManager
 from app.services.user_arbitrage_manager import UserArbitrageManager
-from app.config.config_manager import ConfigManager
+from app.models.arbitrage import ArbitrageOpportunity
+from app.models.user import User
 from app import db
 
-
 class BackgroundArbitrageScanner:
-    """
-    Background service that continuously scans for arbitrage opportunities
-    and sends notifications to users based on their preferences
-    """
-    
-    def __init__(self, app=None):
+    def __init__(self, app: Flask = None, scan_interval: int = 300, min_dollar_profit: float = 10.0):
         self.app = app
-        self.logger = logging.getLogger(__name__)
-        self.scanner = None
-        self.notification_manager = None
-        self.user_manager = None
-        self.scan_thread = None
-        self.stop_event = Event()
-        self.scan_interval = 300  # 5 minutes default
-        self.min_dollar_profit = 10.0  # Minimum $10 profit for $1000 investment
+        self.scan_interval = scan_interval  # Default 5 minutes
+        self.min_dollar_profit = min_dollar_profit
         self.is_running = False
+        self.stop_event = threading.Event()
+        self.scan_thread = None
+        self.logger = logging.getLogger(__name__)
         
-        if app is not None:
-            self.init_app(app)
-    
-    def init_app(self, app):
-        """Initialize the background scanner with Flask app context"""
-        self.app = app
+        # Initialize services
+        self.config_manager = ConfigManager()
+        self.scanner = ArbitrageScanner(self.config_manager)
+        # Defer NotificationManager initialization until app context is available
+        self.notification_manager = None
+        self.user_manager = UserArbitrageManager(self.config_manager)
         
-        # Initialize services within app context
-        with app.app_context():
-            # Ensure database tables exist
-            from app.database import db
-            db.create_all()
-            self.logger.info("Database tables initialized")
+        # Track recent opportunities to prevent duplicates within scan cycles
+        self.recent_opportunities: Set[Tuple[str, str, str]] = set()  # (token, buy_exchange, sell_exchange)
+        self.last_cleanup = datetime.utcnow()
+        
+    def start(self, app: Flask = None):
+        """Start the background scanner"""
+        if app:
+            self.app = app
             
-            config_manager = ConfigManager()
-            self.scanner = ArbitrageScanner(config_manager)
-            self.notification_manager = NotificationManager()
-            self.user_manager = UserArbitrageManager(config_manager)
-            
-            # Get configuration from app config
-            self.scan_interval = app.config.get('ARBITRAGE_SCAN_INTERVAL', 300)
-            self.min_dollar_profit = app.config.get('MIN_DOLLAR_PROFIT', 10.0)
-            
-        self.logger.info(f"Background arbitrage scanner initialized with {self.scan_interval}s interval")
-    
-    def start(self):
-        """Start the background scanning service"""
         if self.is_running:
             self.logger.warning("Background scanner is already running")
             return
             
         if not self.app:
-            self.logger.error("Flask app not initialized")
-            return
+            raise ValueError("Flask app instance is required")
             
-        self.logger.info("Starting background arbitrage scanner...")
-        self.stop_event.clear()
+        self.logger.info(f"Starting background arbitrage scanner with {self.scan_interval}s interval")
         self.is_running = True
+        self.stop_event.clear()
         
-        # Start scanning in a separate thread
-        self.scan_thread = Thread(target=self._scan_loop, daemon=True)
+        # Start scanning thread
+        self.scan_thread = threading.Thread(target=self._scan_loop, daemon=True)
         self.scan_thread.start()
         
-        self.logger.info("Background arbitrage scanner started successfully")
-    
     def stop(self):
-        """Stop the background scanning service"""
+        """Stop the background scanner"""
         if not self.is_running:
             self.logger.warning("Background scanner is not running")
             return
             
         self.logger.info("Stopping background arbitrage scanner...")
-        self.stop_event.set()
         self.is_running = False
+        self.stop_event.set()
         
+        # Wait for thread to finish
         if self.scan_thread and self.scan_thread.is_alive():
             self.scan_thread.join(timeout=10)
             
-        self.logger.info("Background arbitrage scanner stopped")
-    
+        self.logger.info("Background scanner stopped")
+        
     def _scan_loop(self):
-        """Main scanning loop that runs in background thread"""
+        """Main scanning loop"""
         self.logger.info("Background scanning loop started")
         
         while not self.stop_event.is_set():
             try:
+                # Perform scan within app context
                 with self.app.app_context():
                     self._perform_scan()
                     
             except Exception as e:
                 self.logger.error(f"Error during background scan: {str(e)}", exc_info=True)
             
+            # Clean up old opportunities from memory every hour
+            if datetime.utcnow() - self.last_cleanup > timedelta(hours=1):
+                self._cleanup_recent_opportunities()
+            
             # Wait for next scan or stop signal
             if self.stop_event.wait(timeout=self.scan_interval):
                 break
                 
         self.logger.info("Background scanning loop ended")
+
+    def init_app(self, app: Flask):
+        """Initialize with Flask app context and config"""
+        self.app = app
+        with self.app.app_context():
+            # Ensure database tables exist
+            from app.database import db as _db
+            _db.create_all()
+            self.logger.info("Database tables initialized")
+            # Refresh services if needed
+            self.config_manager = ConfigManager()
+            self.scanner = ArbitrageScanner(self.config_manager)
+            self.notification_manager = NotificationManager()
+            self.user_manager = UserArbitrageManager(self.config_manager)
+            # Read configuration values (support both legacy and new keys)
+            self.scan_interval = app.config.get('ARBITRAGE_SCAN_INTERVAL', app.config.get('SCANNER_INTERVAL', self.scan_interval))
+            self.min_dollar_profit = app.config.get('MIN_DOLLAR_PROFIT', self.min_dollar_profit)
+        self.logger.info(f"Background arbitrage scanner initialized with {self.scan_interval}s interval")
     
     def _perform_scan(self):
-        """Perform a single arbitrage scan and process results"""
+        """Perform a single arbitrage scan with improved deduplication"""
         scan_start = time.time()
         self.logger.info("Starting arbitrage scan...")
         
@@ -125,173 +127,184 @@ class BackgroundArbitrageScanner:
                 self.logger.warning("Price fetcher health check failed, skipping scan")
                 return
             
-            # Perform all database operations within app context
-            with self.app.app_context():
-                # Get active users with notification preferences
-                users = User.query.filter(User._is_active == True).all()
-                if not users:
-                    self.logger.info("No active users found for scanning")
-                    return
+            # Find arbitrage opportunities using the new simplified scanner
+            opportunities = self.scanner.find_arbitrage_opportunities()
+            
+            if not opportunities:
+                self.logger.info("No arbitrage opportunities found")
+                return
                 
-                # Fetch current prices
-                assets = self.scanner.config_manager.get_enabled_assets()
-                exchange_configs = self.scanner.config_manager.get_enabled_exchanges()
+            self.logger.info(f"Found {len(opportunities)} potential arbitrage opportunities")
+            
+            # Filter out duplicates and recently processed opportunities
+            new_opportunities = self._filter_duplicate_opportunities(opportunities)
+            
+            if not new_opportunities:
+                self.logger.info("All opportunities were duplicates, skipping notifications")
+                return
                 
-                # Extract IDs for the price fetcher
-                tokens = [asset['id'] for asset in assets]
-                exchanges = [ex['id'] for ex in exchange_configs]
-                
-                self.logger.info(f"Fetching prices for {len(tokens)} tokens from {len(exchanges)} exchanges")
-                price_data = self.scanner.price_fetcher.fetch_prices(tokens, exchanges)
-                
-                if not price_data:
-                    self.logger.warning("No price data received, skipping scan")
-                    return
-                
-                self.logger.info(f"Received {len(price_data)} price data points")
-                
-                # Find arbitrage opportunities
-                opportunities = self.scanner.find_arbitrage_opportunities(
-                    min_dollar_profit=10.0  # Minimum $10 profit for notifications
-                )
-                
-                if opportunities:
-                    self.logger.info(f"Found {len(opportunities)} arbitrage opportunities")
-                    
-                    # Send notifications to users
-                    notification_count = 0
-                    for opportunity in opportunities:
-                        for user in users:
-                            # Check if user has notification settings and should receive notifications
-                            if (user.notification_settings and 
-                                user.notification_settings.should_send_notification('arbitrage')):
-                                try:
-                                    success = self.notification_manager.send_arbitrage_notification(
-                                        user, opportunity
-                                    )
-                                    if success:
-                                        notification_count += 1
-                                except Exception as e:
-                                    self.logger.error(f"Failed to send notification to user {user.id}: {str(e)}")
-                    
-                    self.logger.info(f"Sent {notification_count} notifications for {len(opportunities)} opportunities")
-                    
-                    # Save opportunities to database
-                    new_opportunities = []
-                    for opportunity in opportunities:
-                        try:
-                            # Check if this opportunity already exists (avoid duplicates)
-                            existing = self._find_existing_opportunity(opportunity)
-                            
-                            if not existing:
-                                # Save new opportunity to database
-                                db.session.add(opportunity)
-                                new_opportunities.append(opportunity)
-                                self.logger.debug(f"New opportunity: {opportunity.token_symbol} "
-                                                f"{opportunity.buy_exchange} -> {opportunity.sell_exchange} "
-                                            f"${opportunity.profit_on_1000:.2f} profit on $1000")
-                        
-                        except Exception as e:
-                            self.logger.error(f"Error processing opportunity: {str(e)}")
-                            continue
-                    
-                    # Commit new opportunities to database
-                    if new_opportunities:
-                        db.session.commit()
-                        self.logger.info(f"Saved {len(new_opportunities)} new opportunities to database")
-                    else:
-                        self.logger.info("No new opportunities to save")
-                else:
-                    self.logger.info("No arbitrage opportunities found")
+            self.logger.info(f"Processing {len(new_opportunities)} new opportunities")
+            
+            # Store new opportunities in database
+            self._store_opportunities(new_opportunities)
+            
+            # Send consolidated notifications to users
+            self._send_consolidated_notifications(new_opportunities)
                     
         except Exception as e:
             self.logger.error(f"Error during arbitrage scan: {str(e)}", exc_info=True)
-            with self.app.app_context():
-                db.session.rollback()
+            db.session.rollback()
         
         scan_duration = time.time() - scan_start
         self.logger.info(f"Arbitrage scan completed in {scan_duration:.2f} seconds")
     
-    def _find_existing_opportunity(self, opportunity: ArbitrageOpportunity) -> Optional[ArbitrageOpportunity]:
-        """Check if similar opportunity already exists in database"""
-        # Look for existing opportunity with same token and exchange pair within last hour
-        cutoff_time = datetime.utcnow() - timedelta(hours=1)
+    def _filter_duplicate_opportunities(self, opportunities: List[ArbitrageOpportunity]) -> List[ArbitrageOpportunity]:
+        """Filter out duplicate opportunities from current scan and recent history"""
+        new_opportunities = []
+        current_scan_keys = set()
         
-        # This method is called within app context, so no need to wrap again
+        for opp in opportunities:
+            # Create unique key for this opportunity
+            opp_key = (opp.token_id, opp.buy_exchange, opp.sell_exchange)
+            
+            # Skip if we've already processed this combination in current scan
+            if opp_key in current_scan_keys:
+                self.logger.debug(f"Skipping duplicate in current scan: {opp.token_symbol} {opp.buy_exchange} -> {opp.sell_exchange}")
+                continue
+                
+            # Skip if we've processed this combination recently
+            if opp_key in self.recent_opportunities:
+                self.logger.debug(f"Skipping recently processed opportunity: {opp.token_symbol} {opp.buy_exchange} -> {opp.sell_exchange}")
+                continue
+                
+            # Check database for recent similar opportunities
+            if self._find_recent_database_opportunity(opp):
+                self.logger.debug(f"Skipping opportunity found in recent database: {opp.token_symbol} {opp.buy_exchange} -> {opp.sell_exchange}")
+                continue
+            
+            # This is a new opportunity
+            current_scan_keys.add(opp_key)
+            self.recent_opportunities.add(opp_key)
+            new_opportunities.append(opp)
+            
+        return new_opportunities
+    
+    def _find_recent_database_opportunity(self, opportunity: ArbitrageOpportunity) -> bool:
+        """Check if similar opportunity exists in database within last 30 minutes"""
+        cutoff_time = datetime.utcnow() - timedelta(minutes=30)
+        
         existing = ArbitrageOpportunity.query.filter(
             ArbitrageOpportunity.token_id == opportunity.token_id,
             ArbitrageOpportunity.buy_exchange == opportunity.buy_exchange,
             ArbitrageOpportunity.sell_exchange == opportunity.sell_exchange,
-            ArbitrageOpportunity.timestamp >= cutoff_time,
-            ArbitrageOpportunity.is_active == True
+            ArbitrageOpportunity.timestamp >= cutoff_time
         ).first()
         
-        # If we found an exact match, check if the profit difference is significant
-        if existing:
-            # Consider opportunities as duplicates if profit difference is less than 0.5%
-            profit_difference = abs(opportunity.net_profit_percent - existing.net_profit_percent)
-            if profit_difference < 0.5:
-                self.logger.debug(f"Skipping similar opportunity: {opportunity.token_symbol} "
-                                f"{opportunity.buy_exchange} -> {opportunity.sell_exchange} "
-                                f"(profit diff: {profit_difference:.2f}%)")
-                return existing
-            else:
-                # Update the existing opportunity with new data if profit is significantly different
-                existing.net_profit_percent = opportunity.net_profit_percent
-                existing.raw_price_difference = opportunity.raw_price_difference
-                existing.profit_on_500 = opportunity.profit_on_500
-                existing.profit_on_1000 = opportunity.profit_on_1000
-                existing.profit_on_5000 = opportunity.profit_on_5000
-                existing.profit_on_10000 = opportunity.profit_on_10000
-                existing.timestamp = opportunity.timestamp
-                db.session.commit()
-                self.logger.debug(f"Updated existing opportunity with new profit data: {opportunity.token_symbol}")
-                return existing
-        
-        return None
+        return existing is not None
     
-    def _send_notifications(self, opportunities):
-        """Send notifications to users for new arbitrage opportunities"""
+    def _store_opportunities(self, opportunities: List[ArbitrageOpportunity]):
+        """Store new opportunities in database"""
         try:
-            # Get all users with notification preferences
-            users_to_notify = self.user_manager.get_users_for_notifications()
+            # Clean up old opportunities (older than 2 hours)
+            cutoff_time = datetime.utcnow() - timedelta(hours=2)
+            deleted_count = ArbitrageOpportunity.query.filter(
+                ArbitrageOpportunity.timestamp < cutoff_time
+            ).delete()
             
-            if not users_to_notify:
-                self.logger.info("No users configured for arbitrage notifications")
-                return
-                
-            self.logger.info(f"Sending notifications to {len(users_to_notify)} users")
+            if deleted_count > 0:
+                self.logger.info(f"Cleaned up {deleted_count} old opportunities")
             
-            for user in users_to_notify:
-                try:
-                    # Get user settings for filtering
-                    user_settings = {
-                        'subscription_tier': getattr(user, 'subscription_tier', 'free'),
-                        'preferred_exchanges': getattr(user, 'preferred_exchanges', []),
-                        'preferred_assets': getattr(user, 'preferred_assets', []),
-                        'min_profit_percent': getattr(user, 'min_profit_percent', 0.5)
-                    }
-                    
-                    # Filter opportunities based on user preferences
-                    user_opportunities = self.user_manager.filter_opportunities_for_user(
-                        opportunities, user_settings
-                    )
-                    
-                    if user_opportunities:
-                        # Send notification for each relevant opportunity
-                        for opportunity in user_opportunities:
-                            self.notification_manager.send_arbitrage_notification(
-                                user, opportunity
-                            )
-                            
-                        self.logger.info(f"Sent {len(user_opportunities)} notifications to user {user.id}")
-                        
-                except Exception as e:
-                    self.logger.error(f"Error sending notifications to user {user.id}: {str(e)}")
-                    continue
-                    
+            # Store new opportunities
+            for opp in opportunities:
+                db.session.add(opp)
+            
+            db.session.commit()
+            self.logger.info(f"Stored {len(opportunities)} new opportunities in database")
+            
         except Exception as e:
-            self.logger.error(f"Error in notification process: {str(e)}", exc_info=True)
+            self.logger.error(f"Error storing opportunities: {str(e)}")
+            db.session.rollback()
+    
+    def _send_consolidated_notifications(self, opportunities: List[ArbitrageOpportunity]):
+        """Send consolidated notifications to users (one per token per user)"""
+        try:
+            # Get users with arbitrage notifications enabled
+            users_with_notifications = User.query.join(User.notification_settings).filter(
+                User.notification_settings.has(arbitrage_notifications=True)
+            ).all()
+            
+            if not users_with_notifications:
+                self.logger.info("No users have arbitrage notifications enabled")
+                return
+            
+            # Group opportunities by token to send consolidated notifications
+            token_opportunities = {}
+            for opp in opportunities:
+                if opp.token_symbol not in token_opportunities:
+                    token_opportunities[opp.token_symbol] = []
+                token_opportunities[opp.token_symbol].append(opp)
+            
+            total_notifications_sent = 0
+            
+            # Send notifications to each user
+            for user in users_with_notifications:
+                try:
+                    # Check notification settings and limits
+                    if not user.notification_settings.should_send_notification('arbitrage_opportunity'):
+                        continue
+                    
+                    user_notifications_sent = 0
+                    
+                    # Send one notification per token (best opportunity)
+                    for token_symbol, token_opps in token_opportunities.items():
+                        # Get the best opportunity for this token (highest profit on $1000)
+                        best_opportunity = max(token_opps, key=lambda x: x.profit_on_1000)
+                        
+                        # Create notification content
+                        title = f"🚀 Arbitrage: {best_opportunity.token_symbol}"
+                        message = (
+                            f"Buy on {best_opportunity.buy_exchange}: ${best_opportunity.buy_price:.6f}\n"
+                            f"Sell on {best_opportunity.sell_exchange}: ${best_opportunity.sell_price:.6f}\n"
+                            f"Profit on $1000: ${best_opportunity.profit_on_1000:.2f}\n"
+                            f"Profit on $5000: ${best_opportunity.profit_on_5000:.2f}"
+                        )
+                        
+                        data = {
+                            'opportunity': best_opportunity.to_dict(),
+                            'profit_1000': best_opportunity.profit_on_1000,
+                            'profit_5000': best_opportunity.profit_on_5000,
+                            'total_opportunities': len(token_opps)
+                        }
+                        
+                        # Send notification
+                        success = self.notification_manager.send_notification(
+                            user.id, 'arbitrage_opportunity', title, message, data
+                        )
+                        
+                        if success:
+                            user_notifications_sent += 1
+                            total_notifications_sent += 1
+                    
+                    if user_notifications_sent > 0:
+                        self.logger.info(f"Sent {user_notifications_sent} notifications to user {user.id}")
+                    
+                except Exception as user_error:
+                    self.logger.error(f"Error sending notifications to user {user.id}: {str(user_error)}")
+                    continue
+            
+            self.logger.info(f"Total notifications sent: {total_notifications_sent}")
+            
+        except Exception as e:
+            self.logger.error(f"Error in consolidated notifications: {str(e)}")
+    
+    def _cleanup_recent_opportunities(self):
+        """Clean up old entries from recent opportunities tracking"""
+        # Clear the set periodically to prevent memory buildup
+        # In a production system, you might want to use a more sophisticated approach
+        # like a time-based cache with TTL
+        self.recent_opportunities.clear()
+        self.last_cleanup = datetime.utcnow()
+        self.logger.info("Cleaned up recent opportunities tracking")
     
     def get_status(self):
         """Get current status of the background scanner"""
@@ -299,7 +312,8 @@ class BackgroundArbitrageScanner:
             'is_running': self.is_running,
             'scan_interval': self.scan_interval,
             'min_dollar_profit': self.min_dollar_profit,
-            'thread_alive': self.scan_thread.is_alive() if self.scan_thread else False
+            'thread_alive': self.scan_thread.is_alive() if self.scan_thread else False,
+            'recent_opportunities_count': len(self.recent_opportunities)
         }
 
 

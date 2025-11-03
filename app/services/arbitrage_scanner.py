@@ -1,7 +1,7 @@
-"""Arbitrage scanner service for finding and analyzing opportunities"""
+"""Simplified and efficient arbitrage scanner service"""
 import logging
-from typing import Dict, List, Optional
-from datetime import datetime
+from typing import Dict, List, Optional, Tuple
+from datetime import datetime, timedelta
 from app.config.config_manager import ConfigManager
 from app.services.price_fetcher import EnhancedPriceFetcher
 from app.models.arbitrage import ArbitrageOpportunity
@@ -16,138 +16,125 @@ class ArbitrageScanner:
         self.price_fetcher = EnhancedPriceFetcher(config_manager)
         self.logger = logging.getLogger(__name__)
         
-    def calculate_dollar_profits(
-        self,
-        buy_price: float,
-        sell_price: float,
-        buy_exchange: str,
-        sell_exchange: str,
-        token: Dict
-    ) -> tuple[float, Dict, Dict]:
-        """Calculate dollar-based profits for different investment amounts"""
-        # Additional validation to prevent unrealistic calculations
-        if buy_price <= 0 or sell_price <= 0:
-            return 0.0, {}, {}
+        # Simple profit thresholds based on your requirements
+        self.profit_thresholds = {
+            500: 10.0,    # $500 investment → $10 profit (2.0%)
+            1000: 50.0,   # $1000 investment → $50 profit (5.0%)
+            5000: 100.0,  # $5000 investment → $100 profit (2.0%)
+            10000: 500.0  # $10000 investment → $500 profit (5.0%)
+        }
         
-        # Prevent extreme price ratios that could cause unrealistic calculations
-        price_ratio = sell_price / buy_price
-        if price_ratio > 100:  # More than 10,000% difference is likely bad data
-            self.logger.warning(f"Extreme price ratio detected: {price_ratio:.2f}x between {buy_exchange} (${buy_price}) and {sell_exchange} (${sell_price})")
-            return 0.0, {}, {}
-        
-        # Prevent calculations with extremely small prices that could cause overflow
-        if buy_price < 0.00001 or sell_price < 0.00001:
-            self.logger.warning(f"Extremely small prices detected: buy=${buy_price}, sell=${sell_price}")
-            return 0.0, {}, {}
-        
+    def calculate_simple_profit(self, buy_price: float, sell_price: float, 
+                               buy_exchange: str, sell_exchange: str, 
+                               investment_amount: float) -> Tuple[float, Dict]:
+        """
+        Calculate profit for a specific investment amount using simple logic:
+        1. Buy tokens with investment amount (minus fees)
+        2. Sell tokens on other exchange (minus fees)
+        3. Return net profit in USD
+        """
+        if buy_price <= 0 or sell_price <= 0 or sell_price <= buy_price:
+            return 0.0, {}
+            
         # Get exchange configurations
         exchanges = {ex['id']: ex for ex in self.config_manager.get_enabled_exchanges()}
         buy_exchange_config = exchanges.get(buy_exchange, {})
         sell_exchange_config = exchanges.get(sell_exchange, {})
         
-        # Get fee rates
+        # Get fee rates (use taker fees for conservative estimates)
         buy_fee_rate = buy_exchange_config.get('taker_fee', 0.001)
-        sell_fee_rate = sell_exchange_config.get('maker_fee', 0.001)
+        sell_fee_rate = sell_exchange_config.get('taker_fee', 0.001)
         
-        # Get slippage from token config or use default
-        slippage_rate = token.get('slippage', self.config_manager.assets.get('metadata', {}).get('default_slippage', 0.002))
+        # Simple calculation:
+        # 1. Calculate how many tokens we can buy after fees
+        buy_fee = investment_amount * buy_fee_rate
+        net_investment = investment_amount - buy_fee
+        tokens_bought = net_investment / buy_price
         
-        # Calculate raw price difference
-        raw_price_difference = sell_price - buy_price
+        # 2. Calculate revenue from selling tokens
+        gross_revenue = tokens_bought * sell_price
+        sell_fee = gross_revenue * sell_fee_rate
+        net_revenue = gross_revenue - sell_fee
         
-        # Calculate dollar profits for different investment amounts
-        investment_amounts = [500, 1000, 5000, 10000]
-        dollar_profits = {}
+        # 3. Calculate net profit
+        net_profit = net_revenue - investment_amount
         
-        for amount in investment_amounts:
-            # Calculate units that can be bought with this amount
-            units = amount / buy_price
-            
-            # Calculate total costs (fees + slippage)
-            buy_fee = amount * buy_fee_rate
-            buy_slippage = amount * slippage_rate
-            total_buy_cost = amount + buy_fee + buy_slippage
-            
-            # Calculate sell revenue
-            sell_revenue = units * sell_price
-            sell_fee = sell_revenue * sell_fee_rate
-            sell_slippage = sell_revenue * slippage_rate
-            total_sell_revenue = sell_revenue - sell_fee - sell_slippage
-            
-            # Net profit in dollars
-            net_profit_dollars = total_sell_revenue - total_buy_cost
-            dollar_profits[f'profit_on_{amount}'] = max(0, net_profit_dollars)
-        
-        # Calculate percentage profit based on actual net profit after fees and slippage
-        # Use $1000 investment as the base for percentage calculation
-        base_investment = 1000
-        if base_investment in [500, 1000, 5000, 10000]:
-            net_profit_dollars = dollar_profits[f'profit_on_{base_investment}']
-            net_profit_pct = (net_profit_dollars / base_investment) * 100 if base_investment > 0 else 0
-        else:
-            # Fallback calculation for $1000 investment
-            units = base_investment / buy_price
-            buy_fee = base_investment * buy_fee_rate
-            buy_slippage = base_investment * slippage_rate
-            total_buy_cost = base_investment + buy_fee + buy_slippage
-            
-            sell_revenue = units * sell_price
-            sell_fee = sell_revenue * sell_fee_rate
-            sell_slippage = sell_revenue * slippage_rate
-            total_sell_revenue = sell_revenue - sell_fee - sell_slippage
-            
-            net_profit_dollars = total_sell_revenue - total_buy_cost
-            net_profit_pct = (net_profit_dollars / base_investment) * 100 if base_investment > 0 else 0
-        
-        # Calculate minimum investment required (considering fees and slippage)
-        min_investment = max(10, buy_price * (buy_fee_rate + slippage_rate) * 100)  # At least $10 or enough to cover costs
-        
-        costs = {
-            'buy_fee_rate': buy_fee_rate,
-            'sell_fee_rate': sell_fee_rate,
-            'buy_slippage_rate': slippage_rate,
-            'sell_slippage_rate': slippage_rate
+        # Return profit and calculation details
+        calculation_details = {
+            'investment_amount': investment_amount,
+            'buy_fee': buy_fee,
+            'sell_fee': sell_fee,
+            'tokens_bought': tokens_bought,
+            'gross_revenue': gross_revenue,
+            'net_revenue': net_revenue,
+            'net_profit': net_profit,
+            'profit_percentage': (net_profit / investment_amount) * 100 if investment_amount > 0 else 0
         }
         
-        profit_data = {
-            'raw_price_difference': raw_price_difference,
-            'profit_on_500': dollar_profits['profit_on_500'],
-            'profit_on_1000': dollar_profits['profit_on_1000'],
-            'profit_on_5000': dollar_profits['profit_on_5000'],
-            'profit_on_10000': dollar_profits['profit_on_10000'],
-            'min_investment_required': min_investment,
-            'net_profit_percent': net_profit_pct
-        }
-        
-        # Final validation: prevent unrealistic profit percentages
-        if net_profit_pct > 1000:  # More than 1000% profit is likely bad data
-            self.logger.warning(f"Unrealistic profit percentage detected: {net_profit_pct:.2f}% for {buy_exchange} -> {sell_exchange}")
-            return 0.0, {}, {}
-        
-        # Validate that dollar profits are reasonable
-        max_reasonable_profit = max(investment_amounts) * 2  # Max 200% profit on largest investment
-        if any(profit > max_reasonable_profit for profit in dollar_profits.values()):
-            self.logger.warning(f"Unrealistic dollar profits detected: {dollar_profits}")
-            return 0.0, {}, {}
-        
-        return net_profit_pct, costs, profit_data
-
-    def find_arbitrage_opportunities(self, min_dollar_profit: float = 10.0) -> List[ArbitrageOpportunity]:
+        return max(0, net_profit), calculation_details
+    
+    def is_valid_opportunity(self, buy_price: float, sell_price: float, 
+                           buy_exchange: str, sell_exchange: str) -> bool:
         """
-        Find arbitrage opportunities across all enabled exchanges and tokens
-        Returns opportunities with dollar profit > min_dollar_profit for $1000 investment
+        Validate if this is a legitimate arbitrage opportunity
+        """
+        # Basic price validation
+        if buy_price <= 0 or sell_price <= 0:
+            return False
+            
+        # Must have positive price difference
+        if sell_price <= buy_price:
+            return False
+            
+        # Price difference should be reasonable (not more than 50% difference)
+        price_diff_pct = ((sell_price - buy_price) / buy_price) * 100
+        if price_diff_pct > 50:
+            self.logger.warning(f"Suspicious price difference: {price_diff_pct:.2f}% between {buy_exchange} (${buy_price}) and {sell_exchange} (${sell_price})")
+            return False
+            
+        # Minimum price difference should be at least 0.1% to be worth considering
+        if price_diff_pct < 0.1:
+            return False
+            
+        return True
+    
+    def meets_profit_requirements(self, buy_price: float, sell_price: float,
+                                 buy_exchange: str, sell_exchange: str) -> Tuple[bool, Dict]:
+        """
+        Check if opportunity meets the profit requirements for any investment level
+        """
+        profit_results = {}
+        meets_any_threshold = False
+        
+        for investment_amount, required_profit in self.profit_thresholds.items():
+            actual_profit, details = self.calculate_simple_profit(
+                buy_price, sell_price, buy_exchange, sell_exchange, investment_amount
+            )
+            
+            profit_results[f'profit_on_{investment_amount}'] = actual_profit
+            profit_results[f'details_{investment_amount}'] = details
+            
+            # Check if this investment level meets the threshold
+            if actual_profit >= required_profit:
+                meets_any_threshold = True
+                
+        return meets_any_threshold, profit_results
+
+    def find_arbitrage_opportunities(self) -> List[ArbitrageOpportunity]:
+        """
+        Find arbitrage opportunities using simplified logic
         """
         enabled_exchanges = [ex['id'] for ex in self.config_manager.get_enabled_exchanges()]
         enabled_assets = self.config_manager.get_enabled_assets()
         token_ids = [asset['id'] for asset in enabled_assets]
 
-        self.logger.info(f"Scanning for arbitrage opportunities across {len(enabled_exchanges)} exchanges and {len(token_ids)} assets")
+        self.logger.info(f"Scanning {len(token_ids)} assets across {len(enabled_exchanges)} exchanges")
 
         # Get current prices
         price_data = self.price_fetcher.fetch_prices(token_ids, enabled_exchanges)
 
         if not price_data:
-            self.logger.warning("No price data received from price fetcher")
+            self.logger.warning("No price data received")
             return []
 
         # Group prices by token
@@ -160,6 +147,7 @@ class ArbitrageScanner:
 
         opportunities = []
         total_comparisons = 0
+        valid_opportunities = 0
 
         # Find arbitrage opportunities
         for token_id, prices in token_prices.items():
@@ -167,98 +155,107 @@ class ArbitrageScanner:
             if not token:
                 continue
                 
-            # Compare prices across exchanges
-            for buy_price_data in prices:
-                for sell_price_data in prices:
-                    if buy_price_data['exchange_id'] == sell_price_data['exchange_id']:
+            # Skip if we don't have prices from at least 2 exchanges
+            if len(prices) < 2:
+                continue
+                
+            # Compare all exchange pairs
+            for i, buy_price_data in enumerate(prices):
+                for j, sell_price_data in enumerate(prices):
+                    if i >= j:  # Avoid duplicate comparisons
                         continue
-                    
+                        
                     total_comparisons += 1
+                    
                     buy_price = buy_price_data['price']
                     sell_price = sell_price_data['price']
+                    buy_exchange = buy_price_data['exchange_id']
+                    sell_exchange = sell_price_data['exchange_id']
                     
-                    if sell_price <= buy_price:
-                        continue
-                    
-                    # Calculate raw spread percentage
-                    raw_spread_pct = ((sell_price - buy_price) / buy_price) * 100
-                    
-                    # Calculate dollar-based profits
-                    net_profit_pct, costs, profit_data = self.calculate_dollar_profits(
-                        buy_price,
-                        sell_price,
-                        buy_price_data['exchange_id'],
-                        sell_price_data['exchange_id'],
-                        token
-                    )
-                    
-                    # Skip if validation failed (empty profit_data)
-                    if not profit_data:
-                        continue
-                    
-                    # Apply strict profit thresholds for each investment level
-                    # $500 investment must yield >= $10, $1000 >= $50, $5000 >= $100, $10000 >= $500
-                    meets_thresholds = (
-                        profit_data['profit_on_500'] >= 10.0 and
-                        profit_data['profit_on_1000'] >= 50.0 and
-                        profit_data['profit_on_5000'] >= 100.0 and
-                        profit_data['profit_on_10000'] >= 500.0
-                    )
-                    
-                    if meets_thresholds:
-                        opportunity = ArbitrageOpportunity()
-                        opportunity.token_id = token_id
-                        opportunity.token_symbol = token['symbol']
-                        opportunity.buy_exchange = buy_price_data['exchange_id']
-                        opportunity.sell_exchange = sell_price_data['exchange_id']
-                        opportunity.buy_price = buy_price
-                        opportunity.sell_price = sell_price
-                        opportunity.raw_spread_percent = raw_spread_pct
-                        opportunity.net_profit_percent = net_profit_pct
+                    # Try both directions (A->B and B->A)
+                    for direction in [(buy_price, sell_price, buy_exchange, sell_exchange),
+                                    (sell_price, buy_price, sell_exchange, buy_exchange)]:
                         
-                        # Legacy fee fields (calculated for backward compatibility)
-                        opportunity.buy_fee = buy_price * costs['buy_fee_rate']
-                        opportunity.sell_fee = sell_price * costs['sell_fee_rate']
-                        opportunity.buy_slippage = buy_price * costs['buy_slippage_rate']
-                        opportunity.sell_slippage = sell_price * costs['sell_slippage_rate']
+                        bp, sp, be, se = direction
                         
-                        # New dollar-based fields
-                        opportunity.raw_price_difference = profit_data['raw_price_difference']
-                        opportunity.profit_on_500 = profit_data['profit_on_500']
-                        opportunity.profit_on_1000 = profit_data['profit_on_1000']
-                        opportunity.profit_on_5000 = profit_data['profit_on_5000']
-                        opportunity.profit_on_10000 = profit_data['profit_on_10000']
-                        opportunity.min_investment_required = profit_data['min_investment_required']
+                        # Validate opportunity
+                        if not self.is_valid_opportunity(bp, sp, be, se):
+                            continue
+                            
+                        # Check profit requirements
+                        meets_requirements, profit_results = self.meets_profit_requirements(bp, sp, be, se)
                         
-                        opportunities.append(opportunity)
+                        if meets_requirements:
+                            valid_opportunities += 1
+                            
+                            # Create opportunity object
+                            opportunity = ArbitrageOpportunity()
+                            opportunity.token_id = token_id
+                            opportunity.token_symbol = token['symbol']
+                            opportunity.buy_exchange = be
+                            opportunity.sell_exchange = se
+                            opportunity.buy_price = bp
+                            opportunity.sell_price = sp
+                            
+                            # Calculate basic metrics
+                            raw_price_diff = sp - bp
+                            raw_spread_pct = (raw_price_diff / bp) * 100
+                            
+                            opportunity.raw_spread_percent = raw_spread_pct
+                            opportunity.raw_price_difference = raw_price_diff
+                            
+                            # Store profit data for all investment levels
+                            opportunity.profit_on_500 = profit_results.get('profit_on_500', 0)
+                            opportunity.profit_on_1000 = profit_results.get('profit_on_1000', 0)
+                            opportunity.profit_on_5000 = profit_results.get('profit_on_5000', 0)
+                            opportunity.profit_on_10000 = profit_results.get('profit_on_10000', 0)
+                            
+                            # Use $1000 investment for main profit percentage
+                            details_1000 = profit_results.get('details_1000', {})
+                            opportunity.net_profit_percent = details_1000.get('profit_percentage', 0)
+                            
+                            # Legacy fields for compatibility
+                            opportunity.buy_fee = details_1000.get('buy_fee', 0)
+                            opportunity.sell_fee = details_1000.get('sell_fee', 0)
+                            opportunity.buy_slippage = 0  # Not using slippage in simplified model
+                            opportunity.sell_slippage = 0
+                            opportunity.min_investment_required = 500  # Minimum we calculate for
+                            
+                            opportunities.append(opportunity)
+                            
+                            self.logger.info(f"Found opportunity: {token['symbol']} {be} -> {se}, "
+                                           f"${bp:.6f} -> ${sp:.6f}, "
+                                           f"Profit: ${opportunity.profit_on_1000:.2f} on $1000")
 
-        self.logger.info(f"Analyzed {total_comparisons} price comparisons, found {len(opportunities)} profitable opportunities")
+        self.logger.info(f"Analyzed {total_comparisons} comparisons, found {valid_opportunities} valid opportunities")
         return opportunities
 
-    def scan_and_store_opportunities(self, min_profit_percent: float = 0.5) -> List[ArbitrageOpportunity]:
+    def scan_and_store_opportunities(self) -> List[ArbitrageOpportunity]:
         """
         Scan for arbitrage opportunities and store them in the database
-        Returns list of new opportunities found
         """
         try:
             # Find new opportunities
-            opportunities = self.find_arbitrage_opportunities(min_profit_percent)
+            opportunities = self.find_arbitrage_opportunities()
             
             if opportunities:
-                # Mark existing opportunities as inactive
-                ArbitrageOpportunity.query.filter_by(is_active=True).update({'is_active': False})
+                # Clear old opportunities (older than 1 hour)
+                cutoff_time = datetime.utcnow() - timedelta(hours=1)
+                ArbitrageOpportunity.query.filter(
+                    ArbitrageOpportunity.timestamp < cutoff_time
+                ).delete()
                 
                 # Store new opportunities
                 for opp in opportunities:
                     db.session.add(opp)
                 
                 db.session.commit()
-                self.logger.info(f"Found and stored {len(opportunities)} new arbitrage opportunities")
+                self.logger.info(f"Stored {len(opportunities)} new arbitrage opportunities")
                 
-                # Send notifications to users
+                # Send notifications
                 self._send_opportunity_notifications(opportunities)
             else:
-                self.logger.info("No new arbitrage opportunities found")
+                self.logger.info("No arbitrage opportunities found")
             
             return opportunities
             
@@ -269,7 +266,7 @@ class ArbitrageScanner:
     
     def _send_opportunity_notifications(self, opportunities: List[ArbitrageOpportunity]):
         """
-        Send notifications to users for new arbitrage opportunities
+        Send notifications to users for new arbitrage opportunities with deduplication
         """
         try:
             # Get all users with arbitrage notifications enabled
@@ -284,44 +281,50 @@ class ArbitrageScanner:
             notification_manager = NotificationManager()
             user_arbitrage_manager = UserArbitrageManager()
             
+            # Group opportunities by token to avoid spam
+            token_opportunities = {}
+            for opp in opportunities:
+                if opp.token_symbol not in token_opportunities:
+                    token_opportunities[opp.token_symbol] = []
+                token_opportunities[opp.token_symbol].append(opp)
+            
+            # Send only the best opportunity per token per user
             for user in users_with_notifications:
                 try:
-                    # Filter opportunities based on user preferences
-                    user_opportunities = user_arbitrage_manager.filter_opportunities_for_user(
-                        user.id, opportunities
-                    )
-                    
-                    if not user_opportunities:
-                        continue
-                    
-                    # Check notification settings and limits
                     notification_settings = user.notification_settings
                     if not notification_settings.should_send_notification('arbitrage_opportunity'):
                         continue
                     
-                    # Send notification for the best opportunity (highest profit)
-                    best_opportunity = max(user_opportunities, key=lambda x: x.net_profit_percent)
+                    notifications_sent = 0
                     
-                    title = f"🚀 New Arbitrage Opportunity: {best_opportunity.token_symbol}"
-                    message = (
-                        f"Profit opportunity detected!\n"
-                        f"Asset: {best_opportunity.token_symbol}\n"
-                        f"Buy on {best_opportunity.buy_exchange} → Sell on {best_opportunity.sell_exchange}\n"
-                        f"Expected Profit: {best_opportunity.net_profit_percent:.2f}%"
-                    )
+                    # Send one notification per token (best opportunity)
+                    for token_symbol, token_opps in token_opportunities.items():
+                        # Get the best opportunity for this token (highest profit on $1000)
+                        best_opportunity = max(token_opps, key=lambda x: x.profit_on_1000)
+                        
+                        title = f"🚀 Arbitrage: {best_opportunity.token_symbol}"
+                        message = (
+                            f"Buy on {best_opportunity.buy_exchange}: ${best_opportunity.buy_price:.6f}\n"
+                            f"Sell on {best_opportunity.sell_exchange}: ${best_opportunity.sell_price:.6f}\n"
+                            f"Profit on $1000: ${best_opportunity.profit_on_1000:.2f}\n"
+                            f"Profit on $5000: ${best_opportunity.profit_on_5000:.2f}"
+                        )
+                        
+                        data = {
+                            'opportunity': best_opportunity.to_dict(),
+                            'profit_1000': best_opportunity.profit_on_1000,
+                            'profit_5000': best_opportunity.profit_on_5000
+                        }
+                        
+                        # Send notification
+                        notification_manager.send_notification(
+                            user.id, 'arbitrage_opportunity', title, message, data
+                        )
+                        
+                        notifications_sent += 1
                     
-                    data = {
-                        'opportunity': best_opportunity.to_dict(),
-                        'profit_percent': best_opportunity.net_profit_percent,
-                        'total_opportunities': len(user_opportunities)
-                    }
-                    
-                    # Send notification through all enabled channels
-                    notification_manager.send_notification(
-                        user.id, 'arbitrage_opportunity', title, message, data
-                    )
-                    
-                    self.logger.info(f"Sent arbitrage notification to user {user.id} for {best_opportunity.token_symbol}")
+                    if notifications_sent > 0:
+                        self.logger.info(f"Sent {notifications_sent} notifications to user {user.id}")
                     
                 except Exception as user_error:
                     self.logger.error(f"Error sending notification to user {user.id}: {str(user_error)}")
