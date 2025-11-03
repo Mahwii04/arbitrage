@@ -84,57 +84,98 @@ class EnhancedPriceFetcher:
                         
                         if 'tickers' in data:
                             token_results = []
+                            coin_symbol = str(data.get('symbol', token)).upper()
                             # Filter tickers by our supported exchanges
                             for ticker in data['tickers']:
-                                exchange_id = ticker['market']['identifier']
+                                market = ticker.get('market', {})
+                                exchange_id = market.get('identifier')
+                                base = str(ticker.get('base', '')).upper()
+                                target = str(ticker.get('target', '')).upper()
+                                last = ticker.get('last')
+                                converted_last = ticker.get('converted_last') or {}
                                 
-                                if exchange_id in exchanges and ticker.get('last'):
+                                if not exchange_id:
+                                    continue
+                                
+                                if exchange_id in exchanges:
                                     try:
-                                        price = float(ticker['last'])
-                                        volume = float(ticker.get('volume', 0))
+                                        # Prefer Coingecko-provided USD conversion when available
+                                        usd_price = None
+                                        if isinstance(converted_last, dict) and 'usd' in converted_last:
+                                            try:
+                                                usd_price = float(converted_last['usd'])
+                                            except (ValueError, TypeError):
+                                                usd_price = None
                                         
-                                        # Validate price data more thoroughly
-                                        if price > 0:
-                                            # Check for extremely low prices (likely stale/invalid data)
-                                            if price < 0.00001:  # Very small prices might be stale/invalid
-                                                self.logger.warning(f"Suspiciously low price for {token} on {exchange_id}: ${price}")
+                                        # Fallback: accept stablecoin quotes as USD equivalents
+                                        allowed_usd_targets = {'USD', 'USDT', 'USDC', 'BUSD'}
+                                        if usd_price is None and last is not None and target in allowed_usd_targets:
+                                            usd_price = float(last)
+                                        
+                                        # If we still can't normalize to USD, skip this ticker to avoid extreme local currency values
+                                        if usd_price is None:
+                                            self.logger.debug(
+                                                f"Skipping non-USD quote for {token} on {exchange_id}: base={base}, target={target}, "
+                                                f"last={last}, converted_last={converted_last}"
+                                            )
+                                            continue
+                                        
+                                        # Volume handling
+                                        volume = float(ticker.get('volume', 0)) if ticker.get('volume') is not None else 0.0
+                                        if volume < 0:
+                                            volume = 0.0
+                                        
+                                        # Validate normalized USD price
+                                        if usd_price > 0:
+                                            if usd_price < 0.00001:
+                                                self.logger.warning(
+                                                    f"Suspiciously low USD price for {token} on {exchange_id}: ${usd_price} "
+                                                    f"(base={base}, target={target}, last={last})"
+                                                )
                                                 continue
                                             
-                                            # Check for extremely high prices that are likely data errors
-                                            # Allow up to $200K for Bitcoin, but flag anything above $500K as suspicious
-                                            if price > 500000:  # Anything above $500K is likely a data error
-                                                self.logger.warning(f"Extremely high price rejected for {token} on {exchange_id}: ${price}")
+                                            # Reject extreme outliers
+                                            if usd_price > 500000:
+                                                self.logger.warning(
+                                                    f"Extremely high USD price rejected for {token} on {exchange_id}: ${usd_price} "
+                                                    f"(base={base}, target={target}, last={last}, converted_last={converted_last})"
+                                                )
                                                 continue
                                             
-                                            # Log warning for high prices but still process them
-                                            if price > 200000:  # Prices above $200K are unusual but possible
-                                                self.logger.warning(f"Unusually high price for {token} on {exchange_id}: ${price}")
+                                            # Log unusual but possible high prices
+                                            if usd_price > 200000:
+                                                self.logger.warning(
+                                                    f"Unusually high USD price for {token} on {exchange_id}: ${usd_price} "
+                                                    f"(base={base}, target={target})"
+                                                )
                                             
-                                            # Log warning for very high prices for non-Bitcoin assets
-                                            if price > 150000 and token != 'bitcoin':  # Non-Bitcoin shouldn't exceed $150K typically
-                                                self.logger.warning(f"Suspiciously high price for non-Bitcoin asset {token} on {exchange_id}: ${price}")
-                                            
-                                            # Check volume for liquidity (optional validation)
-                                            if volume < 0:
-                                                volume = 0  # Normalize negative volumes
+                                            # Non-Bitcoin assets shouldn't exceed $150K typically
+                                            if token != 'bitcoin' and usd_price > 150000:
+                                                self.logger.warning(
+                                                    f"Suspiciously high USD price for non-Bitcoin asset {token} on {exchange_id}: ${usd_price}"
+                                                )
+                                                continue
                                             
                                             token_results.append({
                                                 'token_id': token,
-                                                'token_symbol': ticker.get('target', '').upper(),
+                                                'token_symbol': coin_symbol,
                                                 'exchange_id': exchange_id,
-                                                'price': price,
+                                                'price': usd_price,
                                                 'volume': volume,
                                                 'timestamp': time.time()
                                             })
                                         else:
-                                            self.logger.warning(f"Invalid price (non-positive) for {token} on {exchange_id}: ${price}")
+                                            self.logger.warning(
+                                                f"Invalid USD price (non-positive) for {token} on {exchange_id}: ${usd_price} "
+                                                f"(base={base}, target={target}, last={last})"
+                                            )
                                     except (ValueError, TypeError) as e:
                                         self.logger.warning(f"Invalid price data for {token} on {exchange_id}: {e}")
                                         continue
                             
                             all_results.extend(token_results)
                             success = True
-                            self.logger.debug(f"Successfully fetched {len(token_results)} prices for {token}")
+                            self.logger.debug(f"Successfully fetched {len(token_results)} normalized USD prices for {token}")
                         else:
                             self.logger.warning(f"No tickers data for {token}")
                             success = True  # Don't retry for missing data
