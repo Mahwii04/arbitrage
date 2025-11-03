@@ -94,16 +94,25 @@ class EnhancedPriceFetcher:
                                         volume = float(ticker.get('volume', 0))
                                         
                                         # Validate price data more thoroughly
-                                        if price > 0 and price < 100000:  # More strict upper bound
-                                            # Additional validation: check for extreme price values
+                                        if price > 0:
+                                            # Check for extremely low prices (likely stale/invalid data)
                                             if price < 0.00001:  # Very small prices might be stale/invalid
                                                 self.logger.warning(f"Suspiciously low price for {token} on {exchange_id}: ${price}")
                                                 continue
                                             
-                                            # Check for suspiciously high prices that might be data errors
-                                            if price > 50000:  # Most crypto assets shouldn't exceed $50k
-                                                self.logger.warning(f"Suspiciously high price for {token} on {exchange_id}: ${price}")
+                                            # Check for extremely high prices that are likely data errors
+                                            # Allow up to $200K for Bitcoin, but flag anything above $500K as suspicious
+                                            if price > 500000:  # Anything above $500K is likely a data error
+                                                self.logger.warning(f"Extremely high price rejected for {token} on {exchange_id}: ${price}")
                                                 continue
+                                            
+                                            # Log warning for high prices but still process them
+                                            if price > 200000:  # Prices above $200K are unusual but possible
+                                                self.logger.warning(f"Unusually high price for {token} on {exchange_id}: ${price}")
+                                            
+                                            # Log warning for very high prices for non-Bitcoin assets
+                                            if price > 150000 and token != 'bitcoin':  # Non-Bitcoin shouldn't exceed $150K typically
+                                                self.logger.warning(f"Suspiciously high price for non-Bitcoin asset {token} on {exchange_id}: ${price}")
                                             
                                             # Check volume for liquidity (optional validation)
                                             if volume < 0:
@@ -118,7 +127,7 @@ class EnhancedPriceFetcher:
                                                 'timestamp': time.time()
                                             })
                                         else:
-                                            self.logger.warning(f"Invalid price range for {token} on {exchange_id}: ${price}")
+                                            self.logger.warning(f"Invalid price (non-positive) for {token} on {exchange_id}: ${price}")
                                     except (ValueError, TypeError) as e:
                                         self.logger.warning(f"Invalid price data for {token} on {exchange_id}: {e}")
                                         continue
