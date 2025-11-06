@@ -682,6 +682,15 @@ class NotificationManager:
         results = {}
         
         try:
+            # Strict gating: require valid scanner configuration for arbitrage notifications
+            if notification_type in ['arbitrage', 'arbitrage_opportunity']:
+                from app.models.user import User
+                user = User.query.get(user_id)
+                prefs = getattr(user, 'preferences', None)
+                if not user or not prefs or not prefs.has_valid_configuration():
+                    logger.info(f"Skipping {notification_type} for user {user_id}: scanner not configured")
+                    return results
+            
             # Get user's notification settings
             settings = NotificationSettings.query.filter_by(user_id=user_id).first()
             if not settings:
@@ -697,11 +706,6 @@ class NotificationManager:
             # Send through enabled channels
             enabled_channels = settings.get_enabled_channels()
             
-            if 'in_app' in enabled_channels:
-                results['in_app'] = self.in_app_service.send_notification(
-                    user_id, notification_type, title, message, data
-                )
-            
             if 'email' in enabled_channels:
                 results['email'] = self.email_service.send_notification(
                     user_id, notification_type, title, message, data
@@ -716,6 +720,22 @@ class NotificationManager:
                 results['whatsapp'] = self.whatsapp_service.send_notification(
                     user_id, notification_type, title, message, data
                 )
+
+            # In-app mirroring: if any external channel succeeded, ensure an in-app record exists
+            external_success = any([
+                results.get('email'), results.get('telegram'), results.get('whatsapp')
+            ])
+            if external_success:
+                # Always mirror to in-app regardless of user's in-app toggle
+                results['in_app'] = self.in_app_service.send_notification(
+                    user_id, notification_type, title, message, data
+                )
+            else:
+                # If no external channels are enabled/succeeded but in-app is enabled, send in-app
+                if 'in_app' in enabled_channels and 'in_app' not in results:
+                    results['in_app'] = self.in_app_service.send_notification(
+                        user_id, notification_type, title, message, data
+                    )
             
             logger.info(f"Notification sent to user {user_id} via channels: {list(results.keys())}")
             return results

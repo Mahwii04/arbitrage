@@ -40,7 +40,8 @@ class DashboardService:
             'notification_channels': {
                 'email': notification_settings.email_enabled,
                 'telegram': notification_settings.telegram_enabled,
-                'webapp': notification_settings.webapp_enabled
+                'webapp': notification_settings.in_app_enabled,
+                'whatsapp': notification_settings.whatsapp_enabled
             }
         }
     
@@ -81,13 +82,23 @@ class DashboardService:
                 opp.sell_exchange in preferences.preferred_exchanges and
                 opp.token_id in preferences.preferred_assets):
                 filtered_opportunities.append(opp.to_dict())
+        # Fallback: if no active opportunities matched preferences, include recent arbitrage notifications
+        if not filtered_opportunities:
+            recent_notifs = UserNotification.query.filter_by(
+                user_id=user.id, notification_type='arbitrage_opportunity', status='sent'
+            ).order_by(UserNotification.created_at.desc()).limit(10).all()
+            for notif in recent_notifs:
+                if notif.data and isinstance(notif.data, dict):
+                    opp_data = notif.data.get('opportunity')
+                    if opp_data:
+                        filtered_opportunities.append(opp_data)
         
         return filtered_opportunities
     
     def _get_recent_notifications(self, user: User) -> List[Dict]:
         """Get user's recent notifications"""
         recent_notifications = UserNotification.query.filter_by(
-            user_id=user.id
+            user_id=user.id, channel='in_app'
         ).order_by(
             UserNotification.created_at.desc()
         ).limit(5).all()

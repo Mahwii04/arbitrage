@@ -249,6 +249,11 @@ class BackgroundArbitrageScanner:
             # Send notifications to each user
             for user in users_with_notifications:
                 try:
+                    # Skip users without a valid scanner configuration
+                    prefs = getattr(user, 'preferences', None)
+                    if not prefs or not prefs.has_valid_configuration():
+                        self.logger.info(f"Skipping notifications for user {user.id}: scanner not configured")
+                        continue
                     # Check notification settings and limits
                     if not user.notification_settings.should_send_notification('arbitrage_opportunity'):
                         continue

@@ -67,12 +67,7 @@
         <div class="card w-100">
           <div class="card-body">
             <h5 class="card-title fw-semibold">Notifications</h5>
-            <div class="d-flex align-items-center gap-3">
-              <span id="notif-web" class="badge rounded-pill">Web</span>
-              <span id="notif-email" class="badge rounded-pill">Email</span>
-              <span id="notif-telegram" class="badge rounded-pill">Telegram</span>
-              <span id="notif-whatsapp" class="badge rounded-pill">WhatsApp</span>
-            </div>
+            <div id="notif-channels" class="d-flex flex-wrap align-items-center gap-2"></div>
             <small class="text-muted d-block mt-2">Manage in <a href="{{ url_for('dashboard.notification') }}">Notification Settings</a></small>
           </div>
         </div>
@@ -118,6 +113,23 @@
                 <tr><td colspan="5" class="text-muted">No data yet.</td></tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Notifications -->
+    <div class="row mt-4">
+      <div class="col-lg-12 d-flex align-items-stretch">
+        <div class="card w-100">
+          <div class="card-body">
+            <div class="d-flex mb-3 justify-content-between align-items-center">
+              <h4 class="mb-0 card-title">Recent Notifications</h4>
+              <a href="{{ url_for('dashboard.notification') }}" class="btn btn-sm btn-outline-secondary">Manage</a>
+            </div>
+            <div id="recent-notifs" class="list-group">
+              <div class="text-muted">No notifications yet.</div>
+            </div>
           </div>
         </div>
       </div>
@@ -173,12 +185,9 @@
           featuresWrap.appendChild(span);
         });
 
-        // Notification channels
+        // Notification channels: render only enabled external channels, exclude in-app/web
         const notif = (data.user_info && data.user_info.notification_channels) || {};
-        setBadgeState('notif-web', notif.webapp);
-        setBadgeState('notif-email', notif.email);
-        setBadgeState('notif-telegram', notif.telegram);
-        setBadgeState('notif-whatsapp', notif.whatsapp);
+        renderActivatedChannels(notif);
 
         // Active opportunities
         const opps = data.active_opportunities || [];
@@ -191,14 +200,36 @@
         // Exchanges count subtitle
         const exCount = Object.keys(data.exchange_stats || {}).length;
         document.getElementById('exchanges-count').textContent = `Across ${exCount} exchanges`;
+
+        // Recent notifications
+        renderRecentNotifications(data.recent_notifications || []);
       } catch (e) {
         console.error('Failed loading dashboard data', e);
       }
     }
 
-    function setBadgeState(id, enabled) {
-      const el = document.getElementById(id);
-      el.className = 'badge rounded-pill ' + (enabled ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary');
+    function renderActivatedChannels(channels) {
+      const wrap = document.getElementById('notif-channels');
+      wrap.innerHTML = '';
+      const mapping = [
+        { key: 'email', label: 'Email' },
+        { key: 'telegram', label: 'Telegram' },
+        { key: 'whatsapp', label: 'WhatsApp' }
+      ];
+      const enabled = mapping.filter(m => channels[m.key]);
+      if (!enabled.length) {
+        const none = document.createElement('span');
+        none.className = 'text-muted';
+        none.textContent = 'No external channels enabled';
+        wrap.appendChild(none);
+        return;
+      }
+      enabled.forEach(m => {
+        const badge = document.createElement('span');
+        badge.className = 'badge rounded-pill bg-success-subtle text-success';
+        badge.textContent = m.label;
+        wrap.appendChild(badge);
+      });
     }
 
     function renderBestOpportunity(opps) {
@@ -273,6 +304,31 @@
             <div class="mt-1">Best: ${s.best_pair ?? '—'}</div>
           </div>`;
         wrap.appendChild(col);
+      });
+    }
+
+    function renderRecentNotifications(notifs) {
+      const wrap = document.getElementById('recent-notifs');
+      wrap.innerHTML = '';
+      if (!notifs.length) {
+        wrap.innerHTML = '<div class="text-muted">No notifications yet.</div>';
+        return;
+      }
+      notifs.forEach(n => {
+        const item = document.createElement('div');
+        item.className = 'list-group-item d-flex justify-content-between align-items-start';
+        const when = n.sent_at || n.created_at || null;
+        const title = n.title || (n.type ? ('Notification: ' + n.type) : 'Notification');
+        const msg = (n.message || '').split('\n').slice(0,2).join(' ');
+        const opp = (n.opportunity && n.opportunity.token_symbol) ? `${n.opportunity.token_symbol}` : '';
+        item.innerHTML = `
+          <div class="me-auto">
+            <div class="fw-semibold">${title}${opp ? ' — ' + opp : ''}</div>
+            <div class="text-muted small">${msg || '—'}</div>
+          </div>
+          <div class="text-nowrap small">${fmtTime(when)}</div>
+        `;
+        wrap.appendChild(item);
       });
     }
 
