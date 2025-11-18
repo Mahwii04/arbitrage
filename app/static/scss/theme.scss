@@ -1,0 +1,23 @@
+@use 'variables' as *;
+
+// Light theme
+:root {
+  --color-primary: #{$color-primary};
+  --color-bg: #{$color-bg-light};
+  --color-text: #{$color-text-light};
+  --color-card-bg: #{$color-bg-light};
+  --color-card-border: #{$color-card-border-light};
+}
+
+// Dark theme
+[data-theme="dark"] {
+  --color-bg: #{$color-bg-dark};
+  --color-text: #{$color-text-dark};
+  --color-card-bg: #{$color-bg-dark};
+  --color-card-border: #{$color-card-border-dark};
+}
+
+// Utilities
+.bg-gradient-primary { background: linear-gradient(135deg, #32c39c 0%, #28a883 100%) !important; }
+.bg-gradient-dark { background: linear-gradient(135deg, #111111 0%, #1a1a1a 100%) !important; }
+.bg-gradient-light { background: linear-gradient(135deg, #ffffff 0%, #f4fffb 100%) !important; }

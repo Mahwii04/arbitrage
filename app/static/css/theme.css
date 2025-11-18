@@ -1,0 +1,226 @@
+/* Global Theme (Light/Dark) with gradients and brand colors */
+:root {
+  --color-primary: #32c39c;
+  --color-bg: #ffffff;
+  --color-text: #111111;
+  --color-card-bg: #ffffff;
+  --color-card-border: rgba(17, 17, 17, 0.08);
+  --color-muted: #6b7280;
+  --color-header-bg: #ffffff;
+  --color-sidebar-bg: #ffffff;
+  --preloader-bg: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] {
+  --color-bg: #111111;
+  --color-text: #ffffff; /* raise contrast */
+  --color-card-bg: #111111;
+  --color-card-border: rgba(255, 255, 255, 0.12);
+  --color-muted: #e0e0e0; /* brighter muted for readability */
+  --color-header-bg: #111111;
+  --color-sidebar-bg: #111111;
+  --preloader-bg: rgba(17, 17, 17, 0.75);
+}
+
+/* Base layout */
+html, body {
+  height: 100%;
+}
+body {
+  background: linear-gradient(135deg, #ffffff 0%, #f4fffb 100%);
+  color: var(--color-text);
+}
+[data-theme="dark"] body {
+  background: linear-gradient(135deg, #111111 0%, #1a1a1a 100%);
+}
+
+/* Header and sidebar */
+.app-header {
+  background-color: var(--color-header-bg) !important;
+  border-bottom: 1px solid var(--color-card-border);
+  color: var(--color-text);
+}
+.left-sidebar {
+  background-color: var(--color-sidebar-bg) !important;
+  border-right: 1px solid var(--color-card-border);
+  color: var(--color-text);
+}
+
+/* Cards */
+.card {
+  background-color: var(--color-card-bg) !important;
+  color: var(--color-text);
+  border: 1px solid var(--color-card-border);
+}
+
+/* Typography */
+.text-muted { color: var(--color-muted) !important; }
+.text-primary { color: var(--color-primary) !important; }
+
+/* Buttons */
+.btn-primary {
+  background: linear-gradient(90deg, #32c39c 0%, #28a883 100%) !important;
+  border-color: #32c39c !important;
+  color: #ffffff !important;
+}
+.btn-outline-primary {
+  color: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+}
+.btn-outline-primary:hover,
+.btn-outline-primary:focus {
+  background: linear-gradient(90deg, #32c39c 0%, #28a883 100%) !important;
+  color: #ffffff !important;
+}
+
+/* Badges */
+.badge.bg-primary-subtle { background: rgba(50, 195, 156, 0.15) !important; color: var(--color-primary) !important; }
+.badge.bg-success-subtle { background: rgba(50, 195, 156, 0.15) !important; color: var(--color-primary) !important; }
+
+/* Tabs */
+.nav-tabs .nav-link { color: var(--color-muted); }
+.nav-tabs .nav-link.active { color: var(--color-text); border-color: var(--color-primary) var(--color-primary) transparent; }
+
+/* Gradient utilities */
+.bg-gradient-primary { background: linear-gradient(135deg, #32c39c 0%, #28a883 100%) !important; }
+.bg-gradient-dark { background: linear-gradient(135deg, #111111 0%, #1a1a1a 100%) !important; }
+.bg-gradient-light { background: linear-gradient(135deg, #ffffff 0%, #f4fffb 100%) !important; }
+
+/* Inputs */
+.form-control, .form-select {
+  background-color: var(--color-card-bg);
+  color: var(--color-text);
+  border-color: var(--color-card-border);
+}
+.form-control::placeholder { color: var(--color-muted); }
+
+/* Dropdowns */
+.dropdown-menu {
+  background-color: var(--color-card-bg);
+  border: 1px solid var(--color-card-border);
+}
+
+/* Tables */
+.table { color: var(--color-text); }
+.table thead { background-color: var(--color-card-bg); }
+.table-hover tbody tr:hover { background-color: rgba(50, 195, 156, 0.05); }
+
+/* Sidebar link hover */
+.sidebar-nav .sidebar-item .sidebar-link {
+  color: var(--color-text) !important;
+  background: transparent;
+  border-radius: 8px;
+}
+.sidebar-nav .sidebar-item .sidebar-link:hover {
+  color: var(--color-primary);
+  background-color: rgba(50, 195, 156, 0.12);
+}
+.sidebar-nav .sidebar-item .sidebar-link.active {
+  color: #ffffff !important;
+  background: linear-gradient(90deg, #32c39c 0%, #28a883 100%);
+}
+.sidebar-nav iconify-icon { color: inherit !important; }
+.sidebar-nav .hide-menu { color: inherit !important; }
+
+/* Navbar links */
+.navbar .nav-link { color: var(--color-text); }
+.navbar .nav-link:hover { color: var(--color-primary); }
+
+/* Ensure active state text stays white in dark mode */
+[data-theme="dark"] .sidebar-nav .sidebar-item .sidebar-link.active,
+[data-theme="dark"] .sidebar-nav .sidebar-item .sidebar-link.active .hide-menu,
+[data-theme="dark"] .sidebar-nav .sidebar-item .sidebar-link.active iconify-icon {
+  color: #ffffff !important;
+}
+
+/* Card titles/subtitles should follow theme text color */
+.card-title, .card-subtitle { color: var(--color-text) !important; }
+.card-header, .card-footer { color: var(--color-text); }
+
+/* Notification badge */
+.notification { background-color: var(--color-primary) !important; }
+
+/* Theme toggle placement helper */
+#theme-toggle { min-width: 100px; }
+
+/* Dark mode: make mb-0 text readable globally */
+[data-theme="dark"] .mb-0 { color: var(--color-text) !important; }
+
+/* Exceptions: keep original mb-0 colors inside specific cards */
+[data-theme="dark"] .latest-opps .mb-0,
+[data-theme="dark"] .recent-notifs-card .mb-0 {
+  color: inherit !important;
+}
+
+/* Advanced Settings (Thresholds & Limits): ensure labels are readable in dark mode */
+[data-theme="dark"] .advanced-settings .form-label { color: #ffffff !important; }
+
+/* Theme-aware logos: toggle visibility based on theme */
+.logo-img .logo-light { display: inline; }
+.logo-img .logo-dark { display: none; }
+[data-theme="dark"] .logo-img .logo-light { display: none; }
+[data-theme="dark"] .logo-img .logo-dark { display: inline; }
+
+/* Notification dropdown styling for dark mode */
+[data-theme="dark"] .dropdown-menu .notification-item.unread {
+  background-color: var(--color-primary) !important; /* green highlight */
+}
+[data-theme="dark"] .dropdown-menu .notification-item.unread,
+[data-theme="dark"] .dropdown-menu .notification-item.unread h6,
+[data-theme="dark"] .dropdown-menu .notification-item.unread p,
+[data-theme="dark"] .dropdown-menu .notification-item.unread i,
+[data-theme="dark"] .dropdown-menu .notification-item.unread small,
+[data-theme="dark"] .dropdown-menu .notification-item.unread .badge {
+  color: #111111 !important; /* black text on green */
+}
+[data-theme="dark"] .dropdown-menu .notification-item.viewed {
+  background-color: #111111 !important; /* black highlight */
+}
+[data-theme="dark"] .dropdown-menu .notification-item.viewed,
+[data-theme="dark"] .dropdown-menu .notification-item.viewed h6,
+[data-theme="dark"] .dropdown-menu .notification-item.viewed p,
+[data-theme="dark"] .dropdown-menu .notification-item.viewed i,
+[data-theme="dark"] .dropdown-menu .notification-item.viewed small {
+  color: #ffffff !important; /* white text on black */
+}
+
+/* Advanced Settings helper: readable helper text in dark mode */
+[data-theme="dark"] .advanced-settings .form-text { color: #ffffff !important; }
+
+/* Notification Channels title readable in dark mode */
+[data-theme="dark"] .notification-channels-title { color: var(--color-text) !important; }
+[data-theme="dark"] .notification-channels-title i { color: inherit !important; }
+
+/* Auth Pages */
+.auth-logo { max-width: 160px; height: auto; }
+@media (min-width: 992px) { .auth-logo { max-width: 180px; } }
+.auth-page .card { border: 1px solid var(--color-card-border); box-shadow: 0 10px 24px rgba(0,0,0,0.08); }
+.auth-page .btn-primary { background: linear-gradient(90deg, #32c39c 0%, #28a883 100%) !important; border-color: #32c39c !important; }
+.auth-page .form-label { color: var(--color-text); }
+.auth-page .form-text { color: var(--color-muted); }
+[data-theme="dark"] .auth-page .form-label { color: #ffffff; }
+[data-theme="dark"] .auth-page .form-text { color: var(--color-muted); }
+
+/* Preloader overlay */
+.preloader-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--preloader-bg);
+  z-index: 2000;
+  backdrop-filter: blur(2px);
+}
+.preloader-overlay.show { display: flex; }
+.preloader-icon {
+  width: 72px;
+  height: 72px;
+  animation: preloader-pulse 1.2s ease-in-out infinite;
+  border-radius: 16px;
+}
+@keyframes preloader-pulse {
+  0% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(50, 195, 156, 0)); }
+  50% { transform: scale(1.12); filter: drop-shadow(0 0 16px rgba(50, 195, 156, 0.6)); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(50, 195, 156, 0)); }
+}

@@ -7,9 +7,14 @@
   <title>Arbitrage Monkey || By Quantum Automata</title>
   <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.min.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
 </head>
 
 <body>
+  <!-- Preloader Overlay -->
+  <div id="preloader-overlay" class="preloader-overlay" aria-hidden="true">
+    <img class="preloader-icon" src="{{ url_for('static', filename='images/logos/favicon.png') }}" alt="Loading" />
+  </div>
   <!-- Flash Messages -->
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
@@ -25,16 +30,17 @@
   {% endwith %}
 
   <!--  Body Wrapper -->
-  <div class="page-wrapper" id="main-wrapper" data-layout="vertical" data-navbarbg="skin6" data-sidebartype="full"
+  <div class="page-wrapper auth-page" id="main-wrapper" data-layout="vertical" data-navbarbg="skin6" data-sidebartype="full"
     data-sidebar-position="fixed" data-header-position="fixed">
-    <div class="position-relative overflow-hidden text-bg-light min-vh-100 d-flex align-items-center justify-content-center">
+    <div class="position-relative overflow-hidden min-vh-100 d-flex align-items-center justify-content-center">
       <div class="d-flex align-items-center justify-content-center w-100">
         <div class="row justify-content-center w-100">
           <div class="col-md-8 col-lg-6 col-xxl-3">
             <div class="card mb-0 shadow-lg">
               <div class="card-body">
                 <a href="{{ url_for('dashboard.index') }}" class="text-nowrap logo-img text-center d-block py-3 w-100">
-                  <img src="{{ url_for('static', filename='images/logos/logo.svg') }}" alt="Arbitrage Monkey Logo">
+                  <img class="auth-logo logo-light" src="{{ url_for('static', filename='images/logos/logo.png') }}" alt="Arbitrage Monkey Logo (Light)">
+                  <img class="auth-logo logo-dark" src="{{ url_for('static', filename='images/logos/logo-dark.png') }}" alt="Arbitrage Monkey Logo (Dark)">
                 </a>
                 <p class="text-center text-muted">Arbitrage Monkey | Super Arbitrage Scanner</p>
                 
@@ -71,7 +77,7 @@
                   <div class="d-flex align-items-center justify-content-between mb-4">
                     <div class="form-check">
                       {{ form.remember_me(class="form-check-input", id="remember") }}
-                      <label class="form-check-label text-dark" for="remember">
+                      <label class="form-check-label" for="remember">
                         Remember this Device
                       </label>
                     </div>
@@ -97,6 +103,7 @@
   
   <script src="{{ url_for('static', filename='libs/jquery/dist/jquery.min.js') }}"></script>
   <script src="{{ url_for('static', filename='libs/bootstrap/dist/js/bootstrap.bundle.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   
   <script>
     // Auto-dismiss alerts after 5 seconds

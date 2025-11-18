@@ -5,10 +5,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Arbitrage Monkey || By Quantum Automata</title>
+  <!-- Favicons: provide explicit sizes for better browser selection -->
+  <link rel="icon" type="image/png" sizes="80x80" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />
+  <link rel="icon" type="image/png" sizes="80x80" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />
+  <!-- Fallback for legacy browsers -->
   <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.min.css') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.min.css.map') }}" />
   <link rel="stylesheet" href="{{ url_for('static', filename='scss/styles.scss') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
   <style>
     /* Fix for overlapping sidebar and content */
     body {
@@ -21,7 +26,8 @@
       top: 0;
       height: 100vh;
       z-index: 100;
-      background: #fff;
+      background: var(--color-sidebar-bg);
+      color: var(--color-text);
       box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
     }
     
@@ -35,7 +41,8 @@
       position: sticky;
       top: 0;
       z-index: 99;
-      background: #fff;
+      background: var(--color-header-bg);
+      color: var(--color-text);
     }
     
     /* Ensure content doesn't overlap with sidebar */
@@ -95,13 +102,19 @@
 </head>
 
 <body>
+  <!-- Preloader Overlay -->
+  <div id="preloader-overlay" class="preloader-overlay" aria-hidden="true">
+    <img class="preloader-icon" src="{{ url_for('static', filename='images/logos/favicon.png') }}" alt="Loading" />
+  </div>
   <!-- Sidebar Start -->
   <aside class="left-sidebar">
     <!-- Sidebar scroll-->
     <div class="scroll-sidebar" data-simplebar>
       <div class="brand-logo d-flex align-items-center justify-content-between">
         <a href="{{ url_for('dashboard.index') }}" class="text-nowrap logo-img">
-          <img src="{{ url_for('static', filename='images/logos/logo.svg') }}" alt="Logo" width="120" />
+          <!-- Theme-aware logos: show light variant in light mode, dark variant in dark mode -->
+          <img class="logo-light" src="{{ url_for('static', filename='images/logos/logo.png') }}" alt="Logo" width="180" />
+          <img class="logo-dark" src="{{ url_for('static', filename='images/logos/logo-dark.png') }}" alt="Logo" width="180" />
         </a>
         <div class="close-btn d-xl-none d-block sidebartoggler cursor-pointer" id="sidebarCollapse">
           <i class="ti ti-x fs-8"></i>
@@ -112,7 +125,6 @@
         <ul id="sidebarnav">
           <li class="nav-small-cap">
             <iconify-icon icon="solar:menu-dots-linear" class="nav-small-cap-icon fs-4"></iconify-icon>
-            <span class="hide-menu">Home</span>
           </li>
           <li class="sidebar-item">
             <a class="sidebar-link" href="{{ url_for('dashboard.index') }}" aria-expanded="false">
@@ -169,6 +181,9 @@
         </ul>
         <div class="navbar-collapse justify-content-end px-0" id="navbarNav">
           <ul class="navbar-nav flex-row ms-auto align-items-center justify-content-end">
+            <li class="nav-item me-2">
+              <button id="theme-toggle" class="btn btn-sm btn-outline-primary" onclick="toggleTheme()">Dark Mode</button>
+            </li>
             <!-- Notification bell moved next to profile icon -->
             <li class="nav-item dropdown me-2">
               <a class="nav-link" href="javascript:void(0)" id="drop1" data-bs-toggle="dropdown" aria-expanded="false">
@@ -244,6 +259,7 @@
   <script src="{{ url_for ('static', filename='libs/simplebar/dist/simplebar.js') }}"></script>
   <!-- solar icons -->
   <script src="https://cdn.jsdelivr.net/npm/iconify-icon@1.0.8/dist/iconify-icon.min.js"></script>
+  <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
   
   <!-- Notification System Script -->
   <script>
@@ -299,17 +315,17 @@
         const typeIcon = getNotificationIcon(notification.notification_type);
         
         return `
-          <div class="dropdown-item notification-item ${isUnread ? 'unread' : ''}" 
+          <div class="dropdown-item notification-item ${isUnread ? 'unread' : 'viewed'}" 
                onclick="markAsRead('${notification.id}')" 
-               style="cursor: pointer; ${isUnread ? 'background-color: #f8f9fa;' : ''}">
+               style="cursor: pointer;">
             <div class="d-flex align-items-start">
               <div class="me-3">
-                <i class="${typeIcon} fs-5 ${isUnread ? 'text-primary' : 'text-muted'}"></i>
+                <i class="${typeIcon} fs-5"></i>
               </div>
               <div class="flex-grow-1">
                 <h6 class="mb-1 ${isUnread ? 'fw-bold' : 'fw-normal'}">${notification.title}</h6>
-                <p class="mb-1 text-muted small" style="word-wrap: break-word; white-space: normal; max-width: 280px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${notification.message}</p>
-                <small class="text-muted">${timeAgo}</small>
+                <p class="mb-1 ${isUnread ? '' : 'text-muted'} small" style="word-wrap: break-word; white-space: normal; max-width: 280px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${notification.message}</p>
+                <small class="${isUnread ? '' : 'text-muted'}">${timeAgo}</small>
               </div>
               ${isUnread ? '<div class="ms-2"><span class="badge bg-primary rounded-pill">New</span></div>' : ''}
             </div>
