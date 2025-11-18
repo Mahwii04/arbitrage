@@ -122,10 +122,9 @@ class BackgroundArbitrageScanner:
                 self.logger.error("Scanner not initialized, skipping scan")
                 return
                 
-            # Check API health before scanning
+            # Check API health before scanning. If it fails, proceed in degraded mode
             if not self.scanner.price_fetcher.health_check():
-                self.logger.warning("Price fetcher health check failed, skipping scan")
-                return
+                self.logger.warning("Price fetcher health check failed; proceeding in degraded mode")
             
             # Find arbitrage opportunities using the new simplified scanner
             opportunities = self.scanner.find_arbitrage_opportunities()

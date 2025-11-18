@@ -5,6 +5,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Arbitrage Monkey || By Quantum Automata</title>
+  <script>
+    // Apply saved theme BEFORE CSS loads to prevent light-mode flash on dark mode
+    (function(){
+      try {
+        var t = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) { /* no-op */ }
+    })();
+  </script>
   <!-- Favicons: provide explicit sizes for better browser selection -->
   <link rel="icon" type="image/png" sizes="80x80" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />
   <link rel="icon" type="image/png" sizes="80x80" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />

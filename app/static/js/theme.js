@@ -47,20 +47,9 @@
     hidePreloader(2000);
   });
 
-  // Show preloader on navigation via links and form submissions
-  document.addEventListener('click', function(e) {
-    const anchor = e.target.closest('a');
-    if (!anchor) return;
-    const href = anchor.getAttribute('href');
-    const target = anchor.getAttribute('target');
-    if (href && href !== '#' && (!target || target === '_self')) {
-      showPreloader();
-    }
-  }, true);
-
-  document.addEventListener('submit', function() {
-    showPreloader();
-  }, true);
+  // We avoid showing the preloader on clicks/submits to prevent it on
+  // same-page actions (e.g., notification dropdown, modals, tabs).
+  // The preloader shows on actual page loads/reloads via DOMContentLoaded.
 
   document.addEventListener('DOMContentLoaded', init);
 })();
