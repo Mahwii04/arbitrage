@@ -1,4 +1,4 @@
-"""Background arbitrage scanner service with improved deduplication"""
+﻿"""Background arbitrage scanner service with improved deduplication"""
 import logging
 import threading
 import time
@@ -261,7 +261,7 @@ class BackgroundArbitrageScanner:
                         best_opportunity = max(token_opps, key=lambda x: x.profit_on_1000)
                         
                         # Create notification content
-                        title = f"🚀 Arbitrage: {best_opportunity.token_symbol}"
+                        title = f"≡ƒÜÇ Arbitrage: {best_opportunity.token_symbol}"
                         message = (
                             f"Buy on {best_opportunity.buy_exchange}: ${best_opportunity.buy_price:.6f}\n"
                             f"Sell on {best_opportunity.sell_exchange}: ${best_opportunity.sell_price:.6f}\n"

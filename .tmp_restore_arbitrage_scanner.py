@@ -1,4 +1,4 @@
-"""Simplified and efficient arbitrage scanner service"""
+﻿"""Simplified and efficient arbitrage scanner service"""
 import logging
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
@@ -18,10 +18,10 @@ class ArbitrageScanner:
         
         # Simple profit thresholds based on your requirements
         self.profit_thresholds = {
-            500: 10.0,    # $500 investment -> $10 profit (2.0%)
-            1000: 50.0,   # $1000 investment -> $50 profit (5.0%)
-            5000: 100.0,  # $5000 investment -> $100 profit (2.0%)
-            10000: 500.0  # $10000 investment -> $500 profit (5.0%)
+            500: 10.0,    # $500 investment ΓåÆ $10 profit (2.0%)
+            1000: 50.0,   # $1000 investment ΓåÆ $50 profit (5.0%)
+            5000: 100.0,  # $5000 investment ΓåÆ $100 profit (2.0%)
+            10000: 500.0  # $10000 investment ΓåÆ $500 profit (5.0%)
         }
         
     def calculate_simple_profit(self, buy_price: float, sell_price: float, 
@@ -302,7 +302,7 @@ class ArbitrageScanner:
                         # Get the best opportunity for this token (highest profit on $1000)
                         best_opportunity = max(token_opps, key=lambda x: x.profit_on_1000)
                         
-                        title = f"🚀 Arbitrage: {best_opportunity.token_symbol}"
+                        title = f"≡ƒÜÇ Arbitrage: {best_opportunity.token_symbol}"
                         message = (
                             f"Buy on {best_opportunity.buy_exchange}: ${best_opportunity.buy_price:.6f}\n"
                             f"Sell on {best_opportunity.sell_exchange}: ${best_opportunity.sell_price:.6f}\n"

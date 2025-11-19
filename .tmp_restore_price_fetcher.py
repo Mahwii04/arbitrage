@@ -1,4 +1,4 @@
-"""Enhanced price fetcher service with rate limiting and error handling"""
+﻿"""Enhanced price fetcher service with rate limiting and error handling"""
 import time
 import logging
 from typing import Dict, List, Optional, Tuple
