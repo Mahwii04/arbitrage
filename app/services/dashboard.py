@@ -60,11 +60,13 @@ class DashboardService:
                 'last_scan_time': None
             }
         
+        last_time = max(scan.created_at for scan in last_24h_scans)
         return {
             'total_scans': len(last_24h_scans),
             'opportunities_found': sum(scan.opportunities_found for scan in last_24h_scans),
             'avg_scan_duration': sum(scan.scan_duration for scan in last_24h_scans) / len(last_24h_scans),
-            'last_scan_time': max(scan.created_at for scan in last_24h_scans)
+            # Serialize datetime to ISO string for JSON
+            'last_scan_time': last_time.isoformat() if last_time else None
         }
     
     def _get_active_opportunities(self, user: User) -> List[Dict]:
@@ -130,8 +132,9 @@ class DashboardService:
                 'status': notif.status,
                 'title': notif.title,
                 'message': notif.message,
-                'created_at': notif.created_at,
-                'sent_at': notif.sent_at,
+                # Serialize datetimes to ISO strings for JSON
+                'created_at': notif.created_at.isoformat() if notif.created_at else None,
+                'sent_at': notif.sent_at.isoformat() if notif.sent_at else None,
                 'opportunity': notif.opportunity.to_dict() if notif.opportunity else None
             }
             for notif in recent_notifications

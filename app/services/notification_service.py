@@ -748,14 +748,14 @@ class NotificationManager:
         """Send notification for new arbitrage opportunity with profit calculator"""
         # Final validation: prevent sending notifications with unrealistic profit percentages
         if opportunity.net_profit_percent > 1000:  # More than 1000% is unrealistic
-            self.logger.warning(f"Blocked notification with unrealistic profit: {opportunity.net_profit_percent:.2f}%")
+            logger.warning(f"Blocked notification with unrealistic profit: {opportunity.net_profit_percent:.2f}%")
             return {}
         
         # Validate dollar profits are reasonable
         max_investment = 10000
         max_reasonable_profit = max_investment * 2  # Max 200% profit
         if opportunity.profit_on_10000 > max_reasonable_profit:
-            self.logger.warning(f"Blocked notification with unrealistic dollar profit: ${opportunity.profit_on_10000:.2f}")
+            logger.warning(f"Blocked notification with unrealistic dollar profit: ${opportunity.profit_on_10000:.2f}")
             return {}
         title = f"🚀 New Arbitrage Opportunity: {opportunity.token_symbol}"
         

@@ -476,6 +476,14 @@ def opportunities():
         # Order by net profit percent descending and limit to recent opportunities
         opportunities = query.order_by(ArbitrageOpportunity.net_profit_percent.desc(), 
                                      ArbitrageOpportunity.timestamp.desc()).limit(100).all()
+
+        # Fallback: if filters produce no results, show recent active opportunities
+        if not opportunities:
+            opportunities = (ArbitrageOpportunity.query
+                             .filter_by(is_active=True)
+                             .order_by(ArbitrageOpportunity.net_profit_percent.desc(),
+                                       ArbitrageOpportunity.timestamp.desc())
+                             .limit(100).all())
         
         return render_template('dashboard/opportunities.html', 
                              opportunities=opportunities,
@@ -564,6 +572,57 @@ def manual_opportunity():
         try:
             db.session.add(opp)
             db.session.commit()
+
+            # Always create an in-app notification linked to this opportunity
+            try:
+                title = f"\ud83d\ude80 New Arbitrage Opportunity: {opp.token_symbol}"
+                message = (
+                    f"\ud83d\udcb0 Profit opportunity detected!\n\n"
+                    f"Asset: {opp.token_symbol}\n"
+                    f"Buy on {opp.buy_exchange} \u2192 Sell on {opp.sell_exchange}\n"
+                    f"Price Difference: ${opp.raw_price_difference:.4f}\n"
+                    f"Net Profit: {opp.net_profit_percent:.2f}%\n\n"
+                    f"Profit Calculator:\n"
+                    f"$500 will make ${opp.profit_on_500:.2f}\n"
+                    f"$1,000 will make ${opp.profit_on_1000:.2f}\n"
+                    f"$5,000 will make ${opp.profit_on_5000:.2f}\n"
+                    f"$10,000 will make ${opp.profit_on_10000:.2f}\n\n"
+                    f"\u26a0\ufe0f Minimum Investment: ${opp.min_investment_required:.2f}"
+                )
+                notif = UserNotification(
+                    user_id=current_user.id,
+                    opportunity_id=opp.id,
+                    notification_type='arbitrage_opportunity',
+                    channel='in_app',
+                    title=title,
+                    message=message,
+                    data={
+                        'opportunity': opp.to_dict(),
+                        'profit_percent': opp.net_profit_percent,
+                        'profit_on_500': opp.profit_on_500,
+                        'profit_on_1000': opp.profit_on_1000,
+                        'profit_on_5000': opp.profit_on_5000,
+                        'profit_on_10000': opp.profit_on_10000,
+                        'raw_price_difference': opp.raw_price_difference,
+                        'min_investment_required': opp.min_investment_required
+                    }
+                )
+                db.session.add(notif)
+                notif.mark_as_sent()
+                db.session.commit()
+            except Exception as inapp_err:
+                # Don't block on in-app notification creation
+                db.session.rollback()
+                flash(f'Opportunity saved, but in-app notification failed: {str(inapp_err)}', 'warning')
+
+            # Attempt external notifications via NotificationManager (gated by settings)
+            try:
+                notifier = NotificationManager()
+                notifier.send_arbitrage_opportunity_notification(current_user.id, opp)
+            except Exception as notify_err:
+                # Do not rollback the saved opportunity if notifications fail
+                flash(f'Opportunity saved, but external notification failed: {str(notify_err)}', 'warning')
+
             flash('Manual opportunity saved successfully.', 'success')
             return redirect(url_for('dashboard.opportunities'))
         except Exception as e:
