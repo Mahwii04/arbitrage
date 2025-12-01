@@ -487,6 +487,94 @@ def opportunities():
                              opportunities=[],
                              user_preferences=None)
 
+@bp.route('/manual-opportunity', methods=['GET', 'POST'])
+@login_required
+def manual_opportunity():
+    """Create a manual arbitrage opportunity with live calculations"""
+    if request.method == 'GET':
+        return render_template('dashboard/manual_opportunity.html')
+
+    # POST: validate and save
+    try:
+        token_symbol = request.form.get('token_symbol', '').strip()
+        token_id = request.form.get('token_id', '').strip()
+        buy_exchange = request.form.get('buy_exchange', '').strip()
+        sell_exchange = request.form.get('sell_exchange', '').strip()
+        buy_price = float(request.form.get('buy_price', '0') or 0)
+        sell_price = float(request.form.get('sell_price', '0') or 0)
+        buy_fee_pct = float(request.form.get('buy_fee_pct', '0') or 0)
+        sell_fee_pct = float(request.form.get('sell_fee_pct', '0') or 0)
+        buy_slippage_pct = float(request.form.get('buy_slippage_pct', '0') or 0)
+        sell_slippage_pct = float(request.form.get('sell_slippage_pct', '0') or 0)
+        min_investment = float(request.form.get('min_investment_required', '0') or 0)
+
+        # Basic validation
+        errors = []
+        for field, label in [
+            (token_symbol, 'Token Symbol'),
+            (token_id, 'Token ID'),
+            (buy_exchange, 'Buy Exchange'),
+            (sell_exchange, 'Sell Exchange'),
+        ]:
+            if not field:
+                errors.append(f'{label} is required.')
+        if buy_price <= 0 or sell_price <= 0:
+            errors.append('Buy and Sell price must be greater than 0.')
+        if errors:
+            for e in errors:
+                flash(e, 'error')
+            return render_template('dashboard/manual_opportunity.html', form=request.form)
+
+        # Derived calculations
+        raw_spread_percent = ((sell_price - buy_price) / buy_price * 100.0) if buy_price > 0 else 0.0
+        net_profit_percent = raw_spread_percent - (buy_fee_pct + sell_fee_pct + buy_slippage_pct + sell_slippage_pct)
+        raw_price_difference = sell_price - buy_price
+
+        def calc_profit(amount: float) -> float:
+            return amount * (net_profit_percent / 100.0)
+
+        profit_500 = calc_profit(500.0)
+        profit_1000 = calc_profit(1000.0)
+        profit_5000 = calc_profit(5000.0)
+        profit_10000 = calc_profit(10000.0)
+
+        # Save opportunity
+        opp = ArbitrageOpportunity(
+            token_id=token_id,
+            token_symbol=token_symbol,
+            buy_exchange=buy_exchange,
+            sell_exchange=sell_exchange,
+            buy_price=buy_price,
+            sell_price=sell_price,
+            raw_spread_percent=raw_spread_percent,
+            net_profit_percent=net_profit_percent,
+            buy_fee=buy_fee_pct,
+            sell_fee=sell_fee_pct,
+            buy_slippage=buy_slippage_pct,
+            sell_slippage=sell_slippage_pct,
+            raw_price_difference=raw_price_difference,
+            profit_on_500=profit_500,
+            profit_on_1000=profit_1000,
+            profit_on_5000=profit_5000,
+            profit_on_10000=profit_10000,
+            min_investment_required=min_investment,
+            is_active=True
+        )
+
+        try:
+            db.session.add(opp)
+            db.session.commit()
+            flash('Manual opportunity saved successfully.', 'success')
+            return redirect(url_for('dashboard.opportunities'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error saving opportunity: {str(e)}', 'error')
+            return render_template('dashboard/manual_opportunity.html', form=request.form)
+    except Exception as e:
+        flash(f'Unexpected error: {str(e)}', 'error')
+        return render_template('dashboard/manual_opportunity.html', form=request.form)
+
+
 @bp.route('/refresh')
 @login_required
 def refresh_dashboard():

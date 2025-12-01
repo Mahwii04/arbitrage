@@ -10,7 +10,7 @@ from app.services.arbitrage_scanner import ArbitrageScanner
 from app.services.notification_service import NotificationManager
 from app.services.user_arbitrage_manager import UserArbitrageManager
 from app.models.arbitrage import ArbitrageOpportunity
-from app.models.user import User
+from app.models.user import User, ScanHistory
 from app import db
 
 class BackgroundArbitrageScanner:
@@ -132,6 +132,8 @@ class BackgroundArbitrageScanner:
             
             if not opportunities:
                 self.logger.info("No arbitrage opportunities found")
+                # Still record the scan with 0 opportunities
+                self._record_scan_history(0, 0, 0, scan_start)
                 return
                 
             self.logger.info(f"Found {len(opportunities)} potential arbitrage opportunities")
@@ -141,6 +143,8 @@ class BackgroundArbitrageScanner:
             
             if not new_opportunities:
                 self.logger.info("All opportunities were duplicates, skipping notifications")
+                # Record scan with 0 new opportunities
+                self._record_scan_history(len(opportunities), 0, 0, scan_start)
                 return
                 
             self.logger.info(f"Processing {len(new_opportunities)} new opportunities")
@@ -150,6 +154,10 @@ class BackgroundArbitrageScanner:
             
             # Send consolidated notifications to users
             self._send_consolidated_notifications(new_opportunities)
+            
+            # Record scan history for all users
+            self._record_scan_history(len(opportunities), len(new_opportunities), 
+                                    len(self.config_manager.get_exchanges()), scan_start)
                     
         except Exception as e:
             self.logger.error(f"Error during arbitrage scan: {str(e)}", exc_info=True)
@@ -201,6 +209,34 @@ class BackgroundArbitrageScanner:
         ).first()
         
         return existing is not None
+
+    def _record_scan_history(self, total_opportunities: int, new_opportunities: int, 
+                           exchanges_scanned: int, scan_start_time: float):
+        """Record scan history for all users"""
+        try:
+            scan_duration = time.time() - scan_start_time
+            
+            # Get all active users
+            users = User.query.filter(User._is_active == True).all()
+            
+            for user in users:
+                # Create scan history record
+                scan_history = ScanHistory(
+                    user_id=user.id,
+                    scan_type='scheduled',
+                    tokens_scanned=total_opportunities,
+                    exchanges_scanned=exchanges_scanned,
+                    opportunities_found=new_opportunities,
+                    scan_duration=scan_duration
+                )
+                db.session.add(scan_history)
+            
+            db.session.commit()
+            self.logger.info(f"Recorded scan history for {len(users)} users: {new_opportunities} opportunities found")
+            
+        except Exception as e:
+            self.logger.error(f"Error recording scan history: {str(e)}")
+            db.session.rollback()
     
     def _store_opportunities(self, opportunities: List[ArbitrageOpportunity]):
         """Store new opportunities in database"""

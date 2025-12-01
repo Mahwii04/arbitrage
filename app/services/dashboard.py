@@ -68,21 +68,41 @@ class DashboardService:
         }
     
     def _get_active_opportunities(self, user: User) -> List[Dict]:
-        """Get active arbitrage opportunities for user"""
+        """Get active arbitrage opportunities for user with sensible fallbacks"""
         preferences = user.preferences
+        # Base query: active opportunities ordered by profit desc and recency
+        base_query = ArbitrageOpportunity.query.filter_by(is_active=True).order_by(
+            ArbitrageOpportunity.net_profit_percent.desc(),
+            ArbitrageOpportunity.timestamp.desc()
+        )
+
+        # No preferences: return top results
         if not preferences:
-            return []
-            
-        opportunities = ArbitrageOpportunity.query.filter_by(is_active=True).all()
-        filtered_opportunities = []
-        
+            return [opp.to_dict() for opp in base_query.limit(20).all()]
+
+        # Apply user preference filters when present
+        opportunities = base_query.all()
+        filtered_opportunities: List[Dict] = []
+
         for opp in opportunities:
-            if (opp.net_profit_percent >= preferences.min_profit_percent and
-                opp.buy_exchange in preferences.preferred_exchanges and
-                opp.sell_exchange in preferences.preferred_exchanges and
-                opp.token_id in preferences.preferred_assets):
+            if (
+                opp.net_profit_percent >= preferences.min_profit_percent and
+                (not preferences.preferred_exchanges or (
+                    opp.buy_exchange in preferences.preferred_exchanges or
+                    opp.sell_exchange in preferences.preferred_exchanges
+                )) and
+                (not preferences.preferred_assets or (
+                    opp.token_symbol in preferences.preferred_assets or
+                    opp.token_id in preferences.preferred_assets
+                ))
+            ):
                 filtered_opportunities.append(opp.to_dict())
-        # Fallback: if no active opportunities matched preferences, include recent arbitrage notifications
+
+        # Fallback 1: if no matches, show top current active opportunities
+        if not filtered_opportunities:
+            filtered_opportunities = [opp.to_dict() for opp in base_query.limit(15).all()]
+
+        # Fallback 2: include recent arbitrage notifications if still empty
         if not filtered_opportunities:
             recent_notifs = UserNotification.query.filter_by(
                 user_id=user.id, notification_type='arbitrage_opportunity', status='sent'
@@ -92,22 +112,25 @@ class DashboardService:
                     opp_data = notif.data.get('opportunity')
                     if opp_data:
                         filtered_opportunities.append(opp_data)
-        
+
         return filtered_opportunities
     
     def _get_recent_notifications(self, user: User) -> List[Dict]:
-        """Get user's recent notifications"""
+        """Get user's recent notifications with title/message for UI"""
         recent_notifications = UserNotification.query.filter_by(
             user_id=user.id, channel='in_app'
         ).order_by(
             UserNotification.created_at.desc()
         ).limit(5).all()
-        
+
         return [
             {
                 'id': notif.id,
                 'type': notif.notification_type,
                 'status': notif.status,
+                'title': notif.title,
+                'message': notif.message,
+                'created_at': notif.created_at,
                 'sent_at': notif.sent_at,
                 'opportunity': notif.opportunity.to_dict() if notif.opportunity else None
             }
