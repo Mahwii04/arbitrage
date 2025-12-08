@@ -7,6 +7,7 @@ from app.models.user import (
     ScanHistory
 )
 from app.models.arbitrage import ArbitrageOpportunity
+from app.models.admin import AdminRole
 
 @click.command('init-db')
 @with_appcontext
@@ -28,22 +29,21 @@ def create_user_command(username, email, password):
         user = User(username=username, email=email)
         user.set_password(password)
         db.session.add(user)
+        db.session.flush()
         
         # Create default preferences
         preferences = UserPreferences(
-            user=user,
-            min_profit_percent=0.5,
-            preferred_exchanges=[],
-            preferred_assets=[]
+            user_id=user.id,
+            min_profit_percent=0.5
         )
         db.session.add(preferences)
         
         # Create default notification settings
         notification_settings = NotificationSettings(
-            user=user,
-            email_enabled=True,
-            webapp_enabled=True
+            user_id=user.id
         )
+        notification_settings.email_enabled = True
+        notification_settings.in_app_enabled = True
         db.session.add(notification_settings)
         
         db.session.commit()
@@ -57,3 +57,22 @@ def init_app(app):
     """Register database commands"""
     app.cli.add_command(init_db_command)
     app.cli.add_command(create_user_command)
+    app.cli.add_command(make_admin_command)
+    
+@click.command('make-admin')
+@click.option('--email', prompt=True, help='Email of user to grant admin')
+@with_appcontext
+def make_admin_command(email):
+    """Grant admin role to a user by email."""
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        click.echo('User not found', err=True)
+        return
+    if AdminRole.query.filter_by(user_id=user.id).first():
+        click.echo('User is already an admin')
+        return
+    role = AdminRole(user_id=user.id)
+    from app import db as _db
+    _db.session.add(role)
+    _db.session.commit()
+    click.echo(f'Granted admin to {email}')

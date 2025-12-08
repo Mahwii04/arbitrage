@@ -101,13 +101,16 @@ def create_app(config_name=None):
     with app.app_context():
         # Import parts of our application
         from app.models.user import User
-        from app.routes import auth, main, settings, dashboard
+        from app.routes import auth, main, settings
+        from app.routes import dashboard
+        from app.routes import admin
         
         # Register blueprints
         app.register_blueprint(auth.bp)
         app.register_blueprint(main.bp)
         app.register_blueprint(settings.bp)
         app.register_blueprint(dashboard.bp)
+        app.register_blueprint(admin.bp)
         
         # Start the background scheduler
         if not scheduler.running:

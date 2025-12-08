@@ -1,0 +1,103 @@
+{% extends 'admin/base.html' %}
+{% block content %}
+<div class="row">
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-body">
+        <h6>Total Users</h6>
+        <h3>{{ stats.total_users }}</h3>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-body">
+        <h6>Active Users</h6>
+        <h3>{{ stats.active_users }}</h3>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-body">
+        <h6>Scans (24h)</h6>
+        <h3>{{ stats.scans_24h }}</h3>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card">
+      <div class="card-body">
+        <h6>Active Opportunities</h6>
+        <h3>{{ stats.active_opportunities }}</h3>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row mt-4">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Best Pairs (last week)</div>
+      <div class="card-body p-0">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>Token</th>
+              <th>Buy</th>
+              <th>Sell</th>
+              <th>Net Profit %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for opp in best_pairs %}
+            <tr>
+              <td>{{ opp.token_symbol }}</td>
+              <td>{{ opp.buy_exchange }}</td>
+              <td>{{ opp.sell_exchange }}</td>
+              <td>{{ '%.2f'|format(opp.net_profit_percent) }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted">No data</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Scanner Health</div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-6">
+            <p class="mb-1">Running</p>
+            <h5>{{ 'Yes' if scanner_status.is_running else 'No' }}</h5>
+          </div>
+          <div class="col-6">
+            <p class="mb-1">Thread Alive</p>
+            <h5>{{ 'Yes' if scanner_status.thread_alive else 'No' }}</h5>
+          </div>
+          <div class="col-6">
+            <p class="mb-1">Interval (s)</p>
+            <h5>{{ scanner_status.scan_interval }}</h5>
+          </div>
+          <div class="col-6">
+            <p class="mb-1">Min $ Profit</p>
+            <h5>{{ scanner_status.min_dollar_profit }}</h5>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt-3">
+      <div class="card-header">Weekly Summary</div>
+      <div class="card-body">
+        <p class="mb-1">Opportunities (week)</p>
+        <h5>{{ stats.opportunities_week }}</h5>
+        <p class="mb-1">Approx. Profit on $1000 (week)</p>
+        <h5>${{ '%.2f'|format(stats.profit_week_approx) }}</h5>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

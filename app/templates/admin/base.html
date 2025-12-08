@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin | Arbitrage Monkey</title>
+  <script>
+    (function(){
+      try { var t = localStorage.getItem('theme') || 'light'; document.documentElement.setAttribute('data-theme', t);} catch(e){}
+    })();
+  </script>
+  <link rel="icon" type="image/png" sizes="80x80" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.min.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
+</head>
+<body>
+  <aside class="left-sidebar">
+    <div class="scroll-sidebar" data-simplebar>
+      <div class="brand-logo d-flex align-items-center justify-content-between">
+        <a href="{{ url_for('admin.index') }}" class="text-nowrap logo-img">
+          <img class="logo-light" src="{{ url_for('static', filename='images/logos/logo.png') }}" alt="Logo" width="160" />
+          <span class="ms-2 fw-bold">Admin</span>
+        </a>
+        <div class="close-btn d-xl-none d-block sidebartoggler cursor-pointer" id="sidebarCollapse">
+          <i class="ti ti-x fs-8"></i>
+        </div>
+      </div>
+      <nav class="sidebar-nav">
+        <ul id="sidebarnav">
+          <li class="sidebar-item">
+            <a class="sidebar-link" href="{{ url_for('admin.index') }}">
+              <iconify-icon icon="solar:home-2-broken"></iconify-icon>
+              <span class="hide-menu">Overview</span>
+            </a>
+          </li>
+          <li class="sidebar-item">
+            <a class="sidebar-link" href="{{ url_for('admin.users') }}">
+              <iconify-icon icon="solar:users-group-two-rounded-broken"></iconify-icon>
+              <span class="hide-menu">Manage Users</span>
+            </a>
+          </li>
+          <li class="sidebar-item">
+            <a class="sidebar-link" href="{{ url_for('admin.settings') }}">
+              <iconify-icon icon="solar:settings-bold"></iconify-icon>
+              <span class="hide-menu">Settings</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </aside>
+  <div class="body-wrapper">
+    <header class="app-header">
+      <nav class="navbar navbar-expand-lg navbar-light">
+        <div class="navbar-collapse justify-content-end px-0" id="navbarNav">
+          <ul class="navbar-nav flex-row ms-auto align-items-center justify-content-end">
+            <li class="nav-item me-2">
+              <button id="theme-toggle" class="btn btn-sm btn-outline-primary" onclick="toggleTheme()">Dark Mode</button>
+            </li>
+            <li class="nav-item">
+              <a href="{{ url_for('admin.logout') }}" class="btn btn-outline-primary">Logout</a>
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </header>
+    <div class="container-fluid">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+  <script src="{{ url_for ('static', filename='libs/jquery/dist/jquery.min.js') }}"></script>
+  <script src="{{ url_for ('static', filename='libs/bootstrap/dist/js/bootstrap.bundle.min.js') }}"></script>
+  <script src="{{ url_for ('static', filename='js/sidebarmenu.js') }}"></script>
+  <script src="{{ url_for ('static', filename='js/app.min.js') }}"></script>
+  <script src="{{ url_for ('static', filename='libs/simplebar/dist/simplebar.js') }}"></script>
+  <script src="https://cdn.jsdelivr.net/npm/iconify-icon@1.0.8/dist/iconify-icon.min.js"></script>
+  <script src="{{ url_for('static', filename='js/theme.js') }}"></script>
+</body>
+</html>

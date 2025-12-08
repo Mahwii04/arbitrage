@@ -1,0 +1,71 @@
+{% extends 'admin/base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h4>Users</h4>
+  <form class="d-flex" method="get" action="{{ url_for('admin.users') }}">
+    <input type="text" class="form-control me-2" name="q" placeholder="Search username or email" value="{{ request.args.get('q','') }}">
+    <button class="btn btn-primary" type="submit">Search</button>
+  </form>
+  </div>
+
+<div class="table-responsive">
+  <table class="table align-middle">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Tier</th>
+        <th>Active</th>
+        <th>Admin</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.id }}</td>
+        <td>
+          <form method="post" action="{{ url_for('admin.update_user', user_id=u.id) }}" class="d-flex">
+            <input class="form-control form-control-sm me-2" name="username" value="{{ u.username }}">
+            <input class="form-control form-control-sm me-2" name="email" value="{{ u.email }}">
+            <div class="form-check me-2">
+              <input class="form-check-input" type="checkbox" name="is_active" id="active{{ u.id }}" {% if u.is_active %}checked{% endif %}>
+              <label class="form-check-label" for="active{{ u.id }}">Active</label>
+            </div>
+            <button class="btn btn-sm btn-success" type="submit">Save</button>
+          </form>
+        </td>
+        <td></td>
+        <td>
+          <form method="post" action="{{ url_for('admin.update_subscription', user_id=u.id) }}" class="d-flex">
+            <select name="subscription_tier" class="form-select form-select-sm me-2">
+              {% set tiers = ['free','pro','premium'] %}
+              {% for tier in tiers %}
+                <option value="{{ tier }}" {% if u.subscription_tier == tier %}selected{% endif %}>{{ tier|capitalize }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-primary" type="submit">Update</button>
+          </form>
+        </td>
+        <td>{% if u.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>
+        <td>
+          {% if u.id in admin_ids %}
+            <form method="post" action="{{ url_for('admin.remove_admin', user_id=u.id) }}">
+              <button class="btn btn-sm btn-outline-danger" type="submit">Remove</button>
+            </form>
+          {% else %}
+            <form method="post" action="{{ url_for('admin.make_admin', user_id=u.id) }}">
+              <button class="btn btn-sm btn-outline-warning" type="submit">Make Admin</button>
+            </form>
+          {% endif %}
+        </td>
+        <td>
+          <small class="text-muted">Joined {{ u.created_at.strftime('%Y-%m-%d') if u.created_at else '' }}</small>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
