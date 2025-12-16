@@ -4,52 +4,172 @@
   <div class="col-12 col-lg-8">
     <div class="card mb-4">
       <div class="card-body">
+        {% if is_pro %}
         <div class="d-flex align-items-center justify-content-between">
           <div>
             <h4 class="card-title mb-1">Subscription</h4>
-            <p class="card-subtitle text-muted mb-0">Manage your plan and billing</p>
+            <p class="card-subtitle text-muted mb-0">Status</p>
           </div>
         </div>
         <hr class="my-3" />
-        <p class="text-muted">This page displays subscription options. Backend actions are currently disabled.</p>
-        <div class="row g-3">
-          <div class="col-12 col-md-6">
-            <div class="border rounded p-3 h-100">
-              <h6 class="mb-2">Basic</h6>
-              <ul class="mb-3">
-                <li>Core dashboard access</li>
-                <li>Daily notifications</li>
-                <li>Standard support</li>
-              </ul>
-              <button class="btn btn-secondary" disabled>Current Plan</button>
-            </div>
-          </div>
-          <div class="col-12 col-md-6">
-            <div class="border rounded p-3 h-100">
-              <h6 class="mb-2">Pro</h6>
-              <ul class="mb-3">
-                <li>Advanced opportunity screening</li>
-                <li>Real-time notifications</li>
-                <li>Priority support</li>
-              </ul>
-              <button class="btn btn-outline-primary" disabled>Upgrade (Coming Soon)</button>
-            </div>
+        <div class="alert alert-success">
+          You are a Pro User. Your plan already includes unlimited scans and enhanced features.
+        </div>
+        {% else %}
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <h4 class="card-title mb-1">Upgrade to Pro</h4>
+            <p class="card-subtitle text-muted mb-0">Manual crypto payment</p>
           </div>
         </div>
+        <hr class="my-3" />
+
+        <div id="step-1">
+          <h6 class="mb-3">Step 1: Confirm your details</h6>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Account Email</label>
+              <input type="email" class="form-control" value="{{ current_user.email }}" readonly>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Plan</label>
+              <input type="text" class="form-control" value="Pro" readonly>
+            </div>
+          </div>
+          <div class="d-flex justify-content-end mt-3">
+            <button class="btn btn-primary" onclick="goStep(2)">Next</button>
+          </div>
+        </div>
+
+        <div id="step-2" class="d-none">
+          <h6 class="mb-3">Step 2: Choose a payment method</h6>
+          <div class="row g-3">
+            {% for token, info in wallets.items() %}
+            <div class="col-md-6">
+              <div class="border rounded p-3 h-100">
+                <div class="form-check">
+                  <input class="form-check-input" type="radio" name="payment_token" id="pay-{{ token }}" value="{{ token }}">
+                  <label class="form-check-label" for="pay-{{ token }}">{{ info.label or token }}</label>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="d-flex justify-content-between mt-3">
+            <button class="btn btn-secondary" onclick="goStep(1)">Back</button>
+            <button class="btn btn-primary" onclick="goStep(3)">Next</button>
+          </div>
+        </div>
+
+        <div id="step-3" class="d-none">
+          <h6 class="mb-3">Step 3: Send your payment</h6>
+          <div id="payment-details" class="p-3 border rounded">
+            <p class="mb-1"><strong>Selected Method:</strong> <span id="selected-method">—</span></p>
+            <p class="mb-1"><strong>Wallet Address:</strong> <span id="wallet-address">—</span></p>
+            <div class="mt-2">
+              <img id="wallet-qr" src="" alt="QR Code" width="200" height="200" style="display:none;border:1px solid #ddd;border-radius:8px;padding:6px;" />
+            </div>
+            <p class="mb-1"><strong>Token Price (USD):</strong> $<span id="token-usd-price">—</span></p>
+            <p class="mb-1"><strong>Amount to Send:</strong> <span id="amount-to-send">—</span> <span id="amount-token">—</span> (<span id="amount-usd">$—</span>)</p>
+            <p class="mb-1"><strong>NB:</strong> Please send the exact amount specified in the payment details.</p>
+          </div>
+          <div class="d-flex justify-content-between mt-3">
+            <button class="btn btn-secondary" onclick="goStep(2)">Back</button>
+            <button class="btn btn-success" onclick="reportPayment()">I have made this payment</button>
+          </div>
+        </div>
+
+        <div id="step-4" class="d-none">
+          <h6 class="mb-2">Step 4: Confirmation</h6>
+          <p>Your payment request has been submitted. Confirmation is processed after blockchain finality (e.g., 2 blocks). You will be notified once your account is upgraded.</p>
+          <a class="btn btn-outline-primary" href="{{ url_for('dashboard.index') }}">Back to Dashboard</a>
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>
   <div class="col-12 col-lg-4">
     <div class="card mb-4">
       <div class="card-body">
-        <h6 class="mb-2">Billing</h6>
-        <p class="text-muted">Billing integration pending. Actions are disabled for now.</p>
-        <div class="d-grid gap-2">
-          <button class="btn btn-outline-secondary" disabled>Update Payment Method</button>
-          <button class="btn btn-outline-danger" disabled>Cancel Subscription</button>
-        </div>
+        <h6 class="mb-2">What you get with Pro</h6>
+        <ul class="mb-3">
+          <li>Unlimited exchanges and assets</li>
+          <li>Unlimited monthly scan notifications</li>
+          <li>Email notifications</li>
+          <li>Priority support</li>
+        </ul>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+function goStep(n){
+  [1,2,3,4].forEach(i=>document.getElementById('step-'+i).classList.toggle('d-none', i!==n));
+  if(n===3){
+    const sel = document.querySelector('input[name="payment_token"]:checked');
+    if(!sel){ showToast('Please select a payment method'); goStep(2); return; }
+    const token = sel.value;
+    const wallets = {{ wallets|tojson }};
+    const info = wallets[token] || {};
+    document.getElementById('selected-method').innerText = info.label || token;
+    document.getElementById('wallet-address').innerText = info.address || 'Unavailable';
+    const qr = document.getElementById('wallet-qr');
+    if(info.address){
+      qr.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(info.address)}`;
+      qr.style.display = 'inline-block';
+    } else {
+      qr.style.display = 'none';
+    }
+
+    fetch(`{{ url_for('dashboard.pro_price_quote') }}?token=${encodeURIComponent(token)}`)
+      .then(r=>r.json())
+      .then(d=>{
+        if(d.success){
+          const price = d.data.price_usd;
+          const proUsd = d.data.pro_price_usd;
+          const amount = d.data.amount_formatted ?? d.data.amount;
+          document.getElementById('token-usd-price').innerText = Number(price).toFixed(2);
+          document.getElementById('amount-to-send').innerText = Number(amount).toString();
+          document.getElementById('amount-token').innerText = token;
+          document.getElementById('amount-usd').innerText = `$${Number(proUsd).toFixed(2)}`;
+        } else {
+          showToast(d.message || 'Failed to fetch live price');
+        }
+      })
+      .catch(()=>showToast('Network error fetching price'))
+  }
+}
+
+function reportPayment(){
+  const sel = document.querySelector('input[name="payment_token"]:checked');
+  if(!sel){ showToast('Please select a payment method'); return; }
+  const fd = new FormData();
+  fd.append('payment_token', sel.value);
+  fetch('{{ url_for('dashboard.subscribe_pro') }}', { method:'POST', body: fd })
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.success){ goStep(4); }
+      else { showToast(d.message || 'Failed to submit payment'); }
+    })
+    .catch(()=>showToast('Network error'))
+}
+
+function showToast(message) {
+    const toastContainer = document.createElement('div');
+    toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+    toastContainer.style.zIndex = '1050';
+    const toast = document.createElement('div');
+    toast.className = 'toast align-items-center text-white bg-danger border-0';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    toast.innerHTML = '<div class="d-flex"><div class="toast-body">'+message+'</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button></div>';
+    toastContainer.appendChild(toast);
+    document.body.appendChild(toastContainer);
+    const bsToast = new bootstrap.Toast(toast);
+    bsToast.show();
+    toast.addEventListener('hidden.bs.toast', function () { toastContainer.remove(); });
+}
+</script>
 {% endblock %}

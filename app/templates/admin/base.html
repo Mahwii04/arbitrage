@@ -1,54 +1,165 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Admin | Arbitrage Monkey</title>
-  <script>
-    (function(){
-      try { var t = localStorage.getItem('theme') || 'light'; document.documentElement.setAttribute('data-theme', t);} catch(e){}
-    })();
-  </script>
-  <link rel="icon" type="image/png" sizes="80x80" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.min.css') }}" />
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
-</head>
-<body>
-  <aside class="left-sidebar">
-    <div class="scroll-sidebar" data-simplebar>
-      <div class="brand-logo d-flex align-items-center justify-content-between">
-        <a href="{{ url_for('admin.index') }}" class="text-nowrap logo-img">
-          <img class="logo-light" src="{{ url_for('static', filename='images/logos/logo.png') }}" alt="Logo" width="160" />
-          <span class="ms-2 fw-bold">Admin</span>
-        </a>
-        <div class="close-btn d-xl-none d-block sidebartoggler cursor-pointer" id="sidebarCollapse">
-          <i class="ti ti-x fs-8"></i>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Admin Arbitrage Monkey || By Quantum Automata</title>
+    <script>
+      // Apply saved theme BEFORE CSS loads to prevent light-mode flash on dark mode
+      (function(){
+        try {
+          var t = localStorage.getItem('theme') || 'light';
+          document.documentElement.setAttribute('data-theme', t);
+        } catch (e) { /* no-op */ }
+      })();
+    </script>
+    <!-- Favicons: provide explicit sizes for better browser selection -->
+    <link rel="icon" type="image/png" sizes="80x80" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />
+    <link rel="icon" type="image/png" sizes="80x80" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />
+    <!-- Fallback for legacy browsers -->
+    <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.min.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.min.css.map') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='scss/styles.scss') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
+    <style>
+      /* Fix for overlapping sidebar and content */
+      body {
+        overflow-x: hidden;
+      }
+      
+      .left-sidebar {
+        position: fixed;
+        left: 0;
+        top: 0;
+        height: 100vh;
+        z-index: 100;
+        background: var(--color-sidebar-bg);
+        color: var(--color-text);
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      }
+      
+      .body-wrapper {
+        margin-left: 260px;
+        min-height: 50vh;
+        position: relative;
+      }
+      
+      .app-header {
+        position: sticky;
+        top: 0;
+        z-index: 99;
+        background: var(--color-header-bg);
+        color: var(--color-text);
+      }
+      
+      /* Ensure content doesn't overlap with sidebar */
+      @media (max-width: 1199.98px) {
+        .left-sidebar {
+          transform: translateX(-100%);
+          transition: transform 0.3s ease;
+        }
+        
+        .left-sidebar.show {
+          transform: translateX(0);
+        }
+        
+        .body-wrapper {
+          margin-left: 0;
+        }
+        
+        .body-wrapper::before {
+          content: '';
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(0, 0, 0, 0.5);
+          z-index: 99;
+          opacity: 0;
+          visibility: hidden;
+          transition: all 0.3s ease;
+        }
+        
+        .body-wrapper.sidebar-show::before {
+          opacity: 1;
+          visibility: visible;
+        }
+      }
+      
+      /* Fix for dropdown menus */
+      .dropdown-menu {
+        z-index: 1000;
+      }
+      
+      /* Reduce excess space below header */
+      .body-wrapper > .container-fluid { padding-top: 24px !important; }
+  
+      /* Fix nested container top padding applied by theme on mobile */
+      .body-wrapper .body-wrapper-inner .container-fluid { padding-top: 16px !important; }
+  
+      @media (max-width: 992px) {
+        .body-wrapper > .container-fluid { padding-top: 16px !important; }
+        .body-wrapper .body-wrapper-inner .container-fluid { padding-top: 8px !important; }
+      }
+  
+      /* Keep inner wrapper tidy */
+      .body-wrapper-inner { padding: 0; }
+    </style>
+  </head>
+  <body>
+    <!-- Preloader Overlay -->
+    <div id="preloader-overlay" class="preloader-overlay" aria-hidden="true">
+      <img class="preloader-icon" src="{{ url_for('static', filename='images/logos/favicon.png') }}" alt="Loading" />
+    </div>
+    <!-- Sidebar Start -->
+    <aside class="left-sidebar">
+      <!-- Sidebar scroll-->
+      <div class="scroll-sidebar" data-simplebar>
+        <div class="brand-logo d-flex align-items-center justify-content-between">
+          <a href="{{ url_for('admin.index') }}" class="text-nowrap logo-img">
+            <!-- Theme-aware logos: show light variant in light mode, dark variant in dark mode -->
+            <img class="logo-light" src="{{ url_for('static', filename='images/logos/logo.png') }}" alt="Logo" width="180" />
+            <img class="logo-dark" src="{{ url_for('static', filename='images/logos/logo-dark.png') }}" alt="Logo" width="180" />
+          </a>
+          <div class="close-btn d-xl-none d-block sidebartoggler cursor-pointer" id="sidebarCollapse">
+            <i class="ti ti-x fs-8"></i>
+          </div>
         </div>
-      </div>
-      <nav class="sidebar-nav">
-        <ul id="sidebarnav">
-          <li class="sidebar-item">
-            <a class="sidebar-link" href="{{ url_for('admin.index') }}">
-              <iconify-icon icon="solar:home-2-broken"></iconify-icon>
-              <span class="hide-menu">Overview</span>
-            </a>
-          </li>
-          <li class="sidebar-item">
-            <a class="sidebar-link" href="{{ url_for('admin.users') }}">
-              <iconify-icon icon="solar:users-group-two-rounded-broken"></iconify-icon>
-              <span class="hide-menu">Manage Users</span>
-            </a>
-          </li>
+        <!-- Sidebar navigation-->
+        <nav class="sidebar-nav">
+          <ul id="sidebarnav">
+            <li class="sidebar-item">
+              <a class="sidebar-link" href="{{ url_for('admin.index') }}">
+                <iconify-icon icon="solar:home-2-broken"></iconify-icon>
+                <span class="hide-menu">Overview</span>
+              </a>
+            </li>
+            <li class="sidebar-item">
+              <a class="sidebar-link" href="{{ url_for('admin.users') }}">
+                <iconify-icon icon="solar:users-group-two-rounded-broken"></iconify-icon>
+                <span class="hide-menu">Manage Users</span>
+              </a>
+            </li>
           <li class="sidebar-item">
             <a class="sidebar-link" href="{{ url_for('admin.settings') }}">
               <iconify-icon icon="solar:settings-bold"></iconify-icon>
               <span class="hide-menu">Settings</span>
             </a>
           </li>
+          <li class="sidebar-item">
+            <a class="sidebar-link" href="{{ url_for('admin.subscriptions') }}">
+              <iconify-icon icon="solar:card-transfer-bold"></iconify-icon>
+              <span class="hide-menu">Subscriptions</span>
+            </a>
+          </li>
         </ul>
       </nav>
-    </div>
-  </aside>
+      <!-- End Sidebar scroll-->
+    </aside>
+    <!--  Sidebar End -->
+  
   <div class="body-wrapper">
     <header class="app-header">
       <nav class="navbar navbar-expand-lg navbar-light">

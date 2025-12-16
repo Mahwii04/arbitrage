@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Login | Arbitrage Monkey</title>
+  <script>(function(){try{var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+  <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='images/logos/favicon.png') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.min.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}" />
+</head>
+<body>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="position-fixed top-0 end-0 p-3" style="z-index: 1050">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="page-wrapper auth-page d-flex align-items-center justify-content-center min-vh-100">
+    <div class="card shadow-lg" style="max-width: 420px; width: 100%;">
+      <div class="card-body">
+        <a href="{{ url_for('admin.index') }}" class="text-nowrap logo-img text-center d-block py-3 w-100">
+          <img class="auth-logo logo-light" src="{{ url_for('static', filename='images/logos/logo.png') }}" alt="Logo">
+          <img class="auth-logo logo-dark" src="{{ url_for('static', filename='images/logos/logo-dark.png') }}" alt="Logo">
+        </a>
+        <p class="text-center fw-bold">Admin Portal</p>
+
+        <form method="POST" action="{{ url_for('admin.login') }}" novalidate>
+          {{ form.csrf_token }}
+          <div class="mb-3">
+            <label for="email" class="form-label">Email</label>
+            {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), id="email", placeholder="Enter your admin email") }}
+            {% if form.email.errors %}
+              <div class="invalid-feedback">{% for error in form.email.errors %}{{ error }}{% endfor %}</div>
+            {% endif %}
+          </div>
+          <div class="mb-4">
+            <label for="password" class="form-label">Password</label>
+            {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), id="password", placeholder="Enter your password") }}
+            {% if form.password.errors %}
+              <div class="invalid-feedback">{% for error in form.password.errors %}{{ error }}{% endfor %}</div>
+            {% endif %}
+          </div>
+          <div class="d-flex align-items-center justify-content-between mb-4">
+            <div class="form-check">
+              {{ form.remember_me(class="form-check-input", id="remember") }}
+              <label class="form-check-label" for="remember">Remember this Device</label>
+            </div>
+            <a class="text-primary fw-bold text-decoration-none" href="{{ url_for('auth.reset_password_request') }}">Forgot Password?</a>
+          </div>
+          <button type="submit" class="btn btn-primary w-100 py-3 fs-5 mb-2 rounded-2 fw-bold">Sign In</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='libs/jquery/dist/jquery.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='libs/bootstrap/dist/js/bootstrap.bundle.min.js') }}"></script>
+</body>
+</html>

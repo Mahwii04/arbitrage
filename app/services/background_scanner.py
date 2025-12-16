@@ -264,9 +264,10 @@ class BackgroundArbitrageScanner:
     def _send_consolidated_notifications(self, opportunities: List[ArbitrageOpportunity]):
         """Send consolidated notifications to users (one per token per user)"""
         try:
-            # Get users with arbitrage notifications enabled
+            # Get users with arbitrage notifications enabled and active
             users_with_notifications = User.query.join(User.notification_settings).filter(
-                User.notification_settings.has(arbitrage_notifications=True)
+                User.notification_settings.has(arbitrage_notifications=True),
+                User._is_active == True
             ).all()
             
             if not users_with_notifications:
@@ -285,16 +286,61 @@ class BackgroundArbitrageScanner:
             # Send notifications to each user
             for user in users_with_notifications:
                 try:
+                    # Enforce scans per month limits by tier
+                    from app.config.config_manager import ConfigManager
+                    tier_info = ConfigManager().get_subscription_tier(user.subscription_tier)
+                    scans_limit = tier_info.get('scans_per_month', -1)
+                    scans_used = user.scan_history.filter(
+                        ScanHistory.created_at >= datetime.utcnow().replace(day=1)
+                    ).count()
+                    if isinstance(scans_limit, int) and scans_limit != -1 and scans_used >= scans_limit:
+                        # Optionally notify the user about hitting the limit
+                        try:
+                            notif = UserNotification(
+                                user_id=user.id,
+                                notification_type='system_update',
+                                channel='in_app',
+                                title='Plan Limit Reached',
+                                message=f'You have reached your monthly scan notification limit ({scans_limit}). Upgrade to Pro for unlimited alerts.'
+                            )
+                            db.session.add(notif)
+                            notif.mark_as_sent()
+                            db.session.commit()
+                        except Exception:
+                            db.session.rollback()
+                        continue
+                    
                     # Check notification settings and limits
                     if not user.notification_settings.should_send_notification('arbitrage_opportunity'):
                         continue
+                    
+                    # Filter opportunities by user preferences (strict for free tier)
+                    prefs = user.preferences
                     
                     user_notifications_sent = 0
                     
                     # Send one notification per token (best opportunity)
                     for token_symbol, token_opps in token_opportunities.items():
+                        # Apply preference filters: limit to selected exchanges/assets if set
+                        filtered = []
+                        if prefs:
+                            for opp in token_opps:
+                                ex_ok = (not prefs.preferred_exchanges) or (
+                                    opp.buy_exchange in prefs.preferred_exchanges or
+                                    opp.sell_exchange in prefs.preferred_exchanges
+                                )
+                                asset_ok = (not prefs.preferred_assets) or (
+                                    opp.token_symbol in prefs.preferred_assets or
+                                    opp.token_id in prefs.preferred_assets
+                                )
+                                if ex_ok and asset_ok:
+                                    filtered.append(opp)
+                        else:
+                            filtered = token_opps
+                        if not filtered:
+                            continue
                         # Get the best opportunity for this token (highest profit on $1000)
-                        best_opportunity = max(token_opps, key=lambda x: x.profit_on_1000)
+                        best_opportunity = max(filtered, key=lambda x: x.profit_on_1000)
                         
                         # Create notification content
                         title = f"🚀 Arbitrage: {best_opportunity.token_symbol}"

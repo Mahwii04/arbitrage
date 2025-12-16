@@ -146,11 +146,12 @@ class DashboardService:
         scans_this_month = user.scan_history.filter(
             ScanHistory.created_at >= datetime.utcnow().replace(day=1)
         ).count()
-        
+        scans_limit = tier_info.get('scans_per_month', 100)
+        scans_limit_display = 'Unlimited' if isinstance(scans_limit, int) and scans_limit == -1 else scans_limit
         return {
             'tier_name': tier_info.get('name', user.subscription_tier),
             'scans_used': scans_this_month,
-            'scans_limit': tier_info.get('scans_per_month', 100),
+            'scans_limit': scans_limit_display,
             'max_exchanges': tier_info.get('max_exchanges', 2),
             'max_assets': tier_info.get('max_assets', 10),
             'available_features': tier_info.get('notification_channels', ['webapp'])

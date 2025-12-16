@@ -44,17 +44,20 @@ class ArbitrageScanner:
         # Get fee rates (use taker fees for conservative estimates)
         buy_fee_rate = buy_exchange_config.get('taker_fee', 0.001)
         sell_fee_rate = sell_exchange_config.get('taker_fee', 0.001)
+        slippage_rate = 0.001  # 0.1% conservative slippage per leg
         
         # Simple calculation:
         # 1. Calculate how many tokens we can buy after fees
         buy_fee = investment_amount * buy_fee_rate
-        net_investment = investment_amount - buy_fee
+        buy_slippage = investment_amount * slippage_rate
+        net_investment = investment_amount - buy_fee - buy_slippage
         tokens_bought = net_investment / buy_price
         
         # 2. Calculate revenue from selling tokens
         gross_revenue = tokens_bought * sell_price
         sell_fee = gross_revenue * sell_fee_rate
-        net_revenue = gross_revenue - sell_fee
+        sell_slippage = gross_revenue * slippage_rate
+        net_revenue = gross_revenue - sell_fee - sell_slippage
         
         # 3. Calculate net profit
         net_profit = net_revenue - investment_amount
@@ -82,6 +85,9 @@ class ArbitrageScanner:
         if buy_price <= 0 or sell_price <= 0:
             return False
             
+        # Exchanges must be different
+        if buy_exchange == sell_exchange:
+            return False
         # Must have positive price difference
         if sell_price <= buy_price:
             return False
@@ -137,95 +143,99 @@ class ArbitrageScanner:
             self.logger.warning("No price data received")
             return []
 
-        # Group prices by token
-        token_prices: Dict[str, List[Dict]] = {}
+        # Group and consolidate prices by token and exchange
+        token_prices: Dict[str, Dict[str, List[Dict]]] = {}
         for price in price_data:
             token_id = price['token_id']
-            if token_id not in token_prices:
-                token_prices[token_id] = []
-            token_prices[token_id].append(price)
+            ex_id = price['exchange_id']
+            token_prices.setdefault(token_id, {}).setdefault(ex_id, []).append(price)
+
+        def median(values: List[float]) -> float:
+            s = sorted(values)
+            n = len(s)
+            if n == 0:
+                return 0.0
+            mid = n // 2
+            if n % 2 == 0:
+                return (s[mid - 1] + s[mid]) / 2.0
+            return s[mid]
 
         opportunities = []
         total_comparisons = 0
         valid_opportunities = 0
 
-        # Find arbitrage opportunities
-        for token_id, prices in token_prices.items():
+        # Find arbitrage opportunities using consolidated per-exchange prices
+        min_volume_threshold = 1000.0
+        for token_id, per_exchange in token_prices.items():
             token = next((t for t in enabled_assets if t['id'] == token_id), None)
             if not token:
                 continue
-                
-            # Skip if we don't have prices from at least 2 exchanges
-            if len(prices) < 2:
+            # Build consolidated price per exchange (median to reduce outliers)
+            consolidated: List[Dict] = []
+            for ex_id, entries in per_exchange.items():
+                prices_usd = [e['price'] for e in entries if e['price'] > 0]
+                volumes = [e.get('volume', 0.0) for e in entries]
+                if not prices_usd:
+                    continue
+                consolidated.append({
+                    'exchange_id': ex_id,
+                    'price': median(prices_usd),
+                    'volume': sum(v for v in volumes if v and v > 0)
+                })
+
+            # Need at least two exchanges with valid consolidated price
+            if len(consolidated) < 2:
                 continue
-                
-            # Compare all exchange pairs
-            for i, buy_price_data in enumerate(prices):
-                for j, sell_price_data in enumerate(prices):
-                    if i >= j:  # Avoid duplicate comparisons
-                        continue
-                        
-                    total_comparisons += 1
-                    
-                    buy_price = buy_price_data['price']
-                    sell_price = sell_price_data['price']
-                    buy_exchange = buy_price_data['exchange_id']
-                    sell_exchange = sell_price_data['exchange_id']
-                    
-                    # Try both directions (A->B and B->A)
-                    for direction in [(buy_price, sell_price, buy_exchange, sell_exchange),
-                                    (sell_price, buy_price, sell_exchange, buy_exchange)]:
-                        
-                        bp, sp, be, se = direction
-                        
+            # Compare consolidated exchange pairs
+            for i in range(len(consolidated)):
+                for j in range(i + 1, len(consolidated)):
+                    buy = consolidated[i]
+                    sell = consolidated[j]
+                    # build both directions
+                    for bp, sp, be, se, bvol, svol in [
+                        (buy['price'], sell['price'], buy['exchange_id'], sell['exchange_id'], buy['volume'], sell['volume']),
+                        (sell['price'], buy['price'], sell['exchange_id'], buy['exchange_id'], sell['volume'], buy['volume'])
+                    ]:
+                        total_comparisons += 1
+                        # volume guardrails
+                        if bvol < min_volume_threshold or svol < min_volume_threshold:
+                            continue
                         # Validate opportunity
                         if not self.is_valid_opportunity(bp, sp, be, se):
                             continue
-                            
                         # Check profit requirements
                         meets_requirements, profit_results = self.meets_profit_requirements(bp, sp, be, se)
-                        
                         if meets_requirements:
                             valid_opportunities += 1
-                            
-                            # Create opportunity object
-                            opportunity = ArbitrageOpportunity()
-                            opportunity.token_id = token_id
-                            opportunity.token_symbol = token['symbol']
-                            opportunity.buy_exchange = be
-                            opportunity.sell_exchange = se
-                            opportunity.buy_price = bp
-                            opportunity.sell_price = sp
-                            
-                            # Calculate basic metrics
+                            opportunity = ArbitrageOpportunity(
+                                token_id=token_id,
+                                token_symbol=token['symbol'],
+                                buy_exchange=be,
+                                sell_exchange=se,
+                                buy_price=bp,
+                                sell_price=sp
+                            )
                             raw_price_diff = sp - bp
                             raw_spread_pct = (raw_price_diff / bp) * 100
-                            
                             opportunity.raw_spread_percent = raw_spread_pct
                             opportunity.raw_price_difference = raw_price_diff
-                            
-                            # Store profit data for all investment levels
                             opportunity.profit_on_500 = profit_results.get('profit_on_500', 0)
                             opportunity.profit_on_1000 = profit_results.get('profit_on_1000', 0)
                             opportunity.profit_on_5000 = profit_results.get('profit_on_5000', 0)
                             opportunity.profit_on_10000 = profit_results.get('profit_on_10000', 0)
-                            
-                            # Use $1000 investment for main profit percentage
                             details_1000 = profit_results.get('details_1000', {})
                             opportunity.net_profit_percent = details_1000.get('profit_percentage', 0)
-                            
-                            # Legacy fields for compatibility
                             opportunity.buy_fee = details_1000.get('buy_fee', 0)
                             opportunity.sell_fee = details_1000.get('sell_fee', 0)
-                            opportunity.buy_slippage = 0  # Not using slippage in simplified model
-                            opportunity.sell_slippage = 0
-                            opportunity.min_investment_required = 500  # Minimum we calculate for
-                            
+                            # reflect slippage estimates
+                            opportunity.buy_slippage = (details_1000.get('investment_amount', 0) * 0.001)
+                            opportunity.sell_slippage = (details_1000.get('gross_revenue', 0) * 0.001)
+                            opportunity.min_investment_required = 500
                             opportunities.append(opportunity)
-                            
-                            self.logger.info(f"Found opportunity: {token['symbol']} {be} -> {se}, "
-                                           f"${bp:.6f} -> ${sp:.6f}, "
-                                           f"Profit: ${opportunity.profit_on_1000:.2f} on $1000")
+                            self.logger.info(
+                                f"Found opportunity: {token['symbol']} {be} -> {se}, ${bp:.6f} -> ${sp:.6f}, "
+                                f"Profit: ${opportunity.profit_on_1000:.2f} on $1000"
+                            )
 
         self.logger.info(f"Analyzed {total_comparisons} comparisons, found {valid_opportunities} valid opportunities")
         return opportunities

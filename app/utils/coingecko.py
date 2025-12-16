@@ -105,3 +105,21 @@ def get_asset_info(asset_id: str) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Error fetching asset info for {asset_id}: {str(e)}")
         return None
+
+def get_simple_price(asset_ids: List[str], vs: str = 'usd') -> Dict[str, float]:
+    try:
+        url = "https://api.coingecko.com/api/v3/simple/price"
+        params = {"ids": ",".join(asset_ids), "vs_currencies": vs}
+        r = requests.get(url, params=params, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        out = {}
+        for aid in asset_ids:
+            try:
+                out[aid] = float(data.get(aid, {}).get(vs, 0))
+            except Exception:
+                out[aid] = 0.0
+        return out
+    except Exception as e:
+        logger.error(f"Error fetching simple prices: {str(e)}")
+        return {aid: 0.0 for aid in asset_ids}

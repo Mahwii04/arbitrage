@@ -37,7 +37,7 @@
                                 <div class="d-flex justify-content-between align-items-center mb-4">
                                     <h5 class="mb-0">Select Exchanges to Monitor</h5>
                                     <div class="validation-counter">
-                                        <span class="badge bg-secondary" id="exchange-counter">0/2 selected</span>
+                                        <span class="badge bg-secondary" id="exchange-counter">0/{{ tier_limits.max_exchanges if tier_limits.max_exchanges != -1 else '∞' }} selected</span>
                                     </div>
                                 </div>
                                 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 exchange-grid">
@@ -80,7 +80,7 @@
                                 <div class="d-flex justify-content-between align-items-center mb-4">
                                     <h5 class="mb-0">Select Assets to Track</h5>
                                     <div class="validation-counter">
-                                        <span class="badge bg-secondary" id="asset-counter">0/1 selected</span>
+                                        <span class="badge bg-secondary" id="asset-counter">0/{{ tier_limits.max_assets if tier_limits.max_assets != -1 else '∞' }} selected</span>
                                     </div>
                                 </div>
                                 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4 asset-grid">
@@ -189,6 +189,9 @@
 <!-- Add this to your scripts section -->
 {% block scripts %}
 <script>
+const MAX_EXCHANGES = {{ tier_limits.max_exchanges|default(-1) }};
+const MAX_ASSETS = {{ tier_limits.max_assets|default(-1) }};
+const TIER_NAME = "{{ tier_limits.name }}";
 function validateStep(step) {
     if (step === 1) {
         // Validate minimum 2 exchanges
@@ -325,8 +328,9 @@ function updateCounters() {
     // Update exchange counter
     const exchangeCounter = document.getElementById('exchange-counter');
     if (exchangeCounter) {
-        exchangeCounter.textContent = `${selectedExchanges.length}/2 selected`;
-        if (selectedExchanges.length >= 2) {
+        const exLimitText = MAX_EXCHANGES === -1 ? '∞' : MAX_EXCHANGES;
+        exchangeCounter.textContent = `${selectedExchanges.length}/${exLimitText} selected`;
+        if (MAX_EXCHANGES !== -1 && selectedExchanges.length >= MAX_EXCHANGES) {
             exchangeCounter.className = 'badge bg-success';
         } else {
             exchangeCounter.className = 'badge bg-secondary';
@@ -336,8 +340,9 @@ function updateCounters() {
     // Update asset counter
     const assetCounter = document.getElementById('asset-counter');
     if (assetCounter) {
-        assetCounter.textContent = `${selectedAssets.length}/1 selected`;
-        if (selectedAssets.length >= 1) {
+        const asLimitText = MAX_ASSETS === -1 ? '∞' : MAX_ASSETS;
+        assetCounter.textContent = `${selectedAssets.length}/${asLimitText} selected`;
+        if (MAX_ASSETS !== -1 && selectedAssets.length >= MAX_ASSETS) {
             assetCounter.className = 'badge bg-success';
         } else {
             assetCounter.className = 'badge bg-secondary';
@@ -363,23 +368,27 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Listen for exchange selection changes
     document.querySelectorAll('input[name="exchanges"]').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            updateCounters();
-            const validation = validateForm();
-            if (!validation.isValid && validation.messages.some(msg => msg.includes('exchanges'))) {
-                showToast(validation.messages.find(msg => msg.includes('exchanges')));
+        checkbox.addEventListener('change', function(e) {
+            const selectedCount = document.querySelectorAll('input[name="exchanges"]:checked').length;
+            if (MAX_EXCHANGES !== -1 && selectedCount > MAX_EXCHANGES) {
+                e.target.checked = false;
+                showToast(`${TIER_NAME} plan limit reached: max ${MAX_EXCHANGES} exchanges`);
+                return;
             }
+            updateCounters();
         });
     });
     
     // Listen for asset selection changes
     document.querySelectorAll('input[name="assets"]').forEach(checkbox => {
-        checkbox.addEventListener('change', function() {
-            updateCounters();
-            const validation = validateForm();
-            if (!validation.isValid && validation.messages.some(msg => msg.includes('asset'))) {
-                showToast(validation.messages.find(msg => msg.includes('asset')));
+        checkbox.addEventListener('change', function(e) {
+            const selectedCount = document.querySelectorAll('input[name="assets"]:checked').length;
+            if (MAX_ASSETS !== -1 && selectedCount > MAX_ASSETS) {
+                e.target.checked = false;
+                showToast(`${TIER_NAME} plan limit reached: max ${MAX_ASSETS} assets`);
+                return;
             }
+            updateCounters();
         });
     });
     

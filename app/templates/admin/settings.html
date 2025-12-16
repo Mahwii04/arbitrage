@@ -1,0 +1,107 @@
+{% extends 'admin/base.html' %}
+{% block content %}
+<h4>Site Settings</h4>
+<form method="post" action="{{ url_for('admin.settings') }}" class="mt-3">
+  <div class="row">
+    <div class="col-md-6">
+      <div class="mb-3">
+        <label class="form-label">Scanner Interval (seconds)</label>
+        <input type="number" class="form-control" name="scanner_interval" value="{{ scanner_interval }}" min="60">
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="mb-3">
+        <label class="form-label">Minimum Dollar Profit</label>
+        <input type="number" step="0.01" class="form-control" name="min_dollar_profit" value="{{ min_dollar_profit }}">
+      </div>
+    </div>
+  </div>
+  <div class="form-check mb-3">
+    <input class="form-check-input" type="checkbox" name="maintenance_mode" id="mm" {% if maintenance_mode %}checked{% endif %}>
+    <label class="form-check-label" for="mm">Enable maintenance mode</label>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">Announcement Banner</label>
+    <textarea class="form-control" name="announcement" rows="3">{{ announcement }}</textarea>
+  </div>
+  <hr class="my-4">
+  <h5>Payment Wallets</h5>
+  <p class="text-muted">Configure accepted tokens and wallet addresses for manual Pro payments.</p>
+  <div class="table-responsive">
+    <table class="table align-middle" id="wallets-table">
+      <thead>
+        <tr>
+          <th>Token</th>
+          <th>Label</th>
+          <th>Wallet Address</th>
+          <th>CoinGecko ID</th>
+          <th>QR</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for token, info in wallets.items() %}
+        <tr>
+          <td><input class="form-control" name="wallet_token[]" value="{{ token }}"></td>
+          <td><input class="form-control" name="wallet_label[]" value="{{ info.label or token }}"></td>
+          <td><input class="form-control wallet-address" name="wallet_address[]" value="{{ info.address }}" oninput="updateQr(this)"></td>
+          <td><input class="form-control" name="wallet_coingecko_id[]" value="{{ info.coingecko_id or '' }}" placeholder="e.g., bitcoin"></td>
+          <td class="qr-cell">
+            {% if info.address %}
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data={{ info.address | urlencode }}" width="120" height="120" />
+            {% else %}
+            <span class="text-muted">No address</span>
+            {% endif %}
+          </td>
+          <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">Remove</button></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <button type="button" class="btn btn-outline-primary" onclick="addWalletRow()">Add Payment Method</button>
+  <button class="btn btn-primary" type="submit">Save Settings</button>
+  <a class="btn btn-outline-secondary ms-2" href="{{ url_for('admin.index') }}">Back</a>
+  <hr class="my-4">
+  <h5>Scanner Status</h5>
+  <div id="scanner-status" class="text-muted">Loading...</div>
+</form>
+
+<script>
+  fetch('{{ url_for('admin.scanner_status') }}')
+    .then(r=>r.json()).then(d=>{
+      if(d.success){
+        const s=d.status;
+        document.getElementById('scanner-status').innerText = `Running: ${s.is_running ? 'Yes':'No'} | Thread Alive: ${s.thread_alive ? 'Yes':'No'} | Interval: ${s.scan_interval}s | Min $ Profit: ${s.min_dollar_profit}`;
+      }
+    });
+</script>
+<script>
+function addWalletRow(){
+  const tbody=document.querySelector('#wallets-table tbody');
+  const tr=document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="form-control" name="wallet_token[]" value=""></td>
+    <td><input class="form-control" name="wallet_label[]" value=""></td>
+    <td><input class="form-control wallet-address" name="wallet_address[]" value="" oninput="updateQr(this)"></td>
+    <td><input class="form-control" name="wallet_coingecko_id[]" value="" placeholder="e.g., ethereum"></td>
+    <td class="qr-cell"><span class="text-muted">No address</span></td>
+    <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)">Remove</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+function removeRow(btn){
+  const tr=btn.closest('tr');
+  tr.remove();
+}
+function updateQr(input){
+  const addr=input.value.trim();
+  const cell=input.closest('tr').querySelector('.qr-cell');
+  if(addr){
+    cell.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(addr)}" width="120" height="120" />`;
+  }else{
+    cell.innerHTML = '<span class="text-muted">No address</span>';
+  }
+}
+</script>
+{% endblock %}

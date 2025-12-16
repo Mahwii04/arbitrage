@@ -2,12 +2,15 @@
 from datetime import datetime
 from flask import Blueprint, render_template, jsonify, request, flash, redirect, url_for
 from flask_login import login_required, current_user
+import re
 from app.services.dashboard import DashboardService
 from app.config.config_manager import ConfigManager
 from app.models.user import User, UserPreferences, NotificationSettings, UserNotification
 from app.models.arbitrage import ArbitrageOpportunity
-from app.utils.coingecko import get_supported_exchanges, get_supported_assets
+from app.utils.coingecko import get_supported_exchanges, get_supported_assets, get_asset_info, get_simple_price
 from app.services.notification_service import NotificationManager
+from app.models.subscription import SubscriptionRequest
+from app.models.admin import SiteSettings
 from app.database import db
 
 bp = Blueprint('dashboard', __name__, url_prefix='/dashboard')
@@ -75,8 +78,106 @@ def profile():
 @bp.route('/subscription')
 @login_required
 def subscription():
-    """Render the subscription management page (frontend only for now)"""
-    return render_template('dashboard/subscription.html')
+    wallets = SiteSettings.get('payment_wallets', {
+        'BTC': {'address': '', 'label': 'Bitcoin'},
+        'ETH': {'address': '', 'label': 'Ethereum'},
+        'USDT-ERC20': {'address': '', 'label': 'USDT (ERC20)'},
+        'USDT-TRC20': {'address': '', 'label': 'USDT (TRC20)'},
+        'SOL': {'address': '', 'label': 'Solana'}
+    })
+    is_pro = (current_user.subscription_tier or '').lower() == 'pro'
+    return render_template('dashboard/subscription.html', wallets=wallets, is_pro=is_pro)
+
+@bp.route('/subscribe/pro', methods=['POST'])
+@login_required
+def subscribe_pro():
+    try:
+        payment_token = request.form.get('payment_token', '').strip()
+        wallets = SiteSettings.get('payment_wallets', {})
+        wallet_info = wallets.get(payment_token)
+        if not wallet_info or not wallet_info.get('address'):
+            return jsonify({'success': False, 'message': 'Payment method unavailable'}), 400
+        req = SubscriptionRequest(
+            user_id=current_user.id,
+            tier_requested='pro',
+            payment_token=payment_token,
+            wallet_address=wallet_info['address'],
+            status='payment_reported'
+        )
+        db.session.add(req)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@bp.route('/pro-price-quote')
+@login_required
+def pro_price_quote():
+    try:
+        token = request.args.get('token', '').upper()
+        parts = re.split(r'[-_\s]+', token) if token else []
+        base = parts[0] if parts else ''
+        mapping_by_base = {
+            'BTC': 'bitcoin',
+            'ETH': 'ethereum',
+            'ETHEREUM': 'ethereum',
+            'SOL': 'solana',
+            'BNB': 'binancecoin',
+            'USDT': 'tether',
+            'USDC': 'usd-coin'
+        }
+        # Prefer admin-configured wallets mapping
+        wallets = SiteSettings.get('payment_wallets', {})
+        wallet_info = wallets.get(token) or wallets.get(base) or {}
+        asset_id = wallet_info.get('coingecko_id')
+        if not asset_id:
+            # fallback: if any configured token contains the base, use its coingecko_id
+            for wtok, winfo in wallets.items():
+                key_u = str(wtok).upper()
+                label_u = str(winfo.get('label', '')).upper()
+                if base and (base in key_u or base in label_u) and winfo.get('coingecko_id'):
+                    asset_id = winfo.get('coingecko_id')
+                    break
+        if not asset_id:
+            asset_id = mapping_by_base.get(base)
+        if not asset_id:
+            return jsonify({'success': False, 'message': 'Unsupported token'}), 400
+        pro_tier = config_manager.get_subscription_tier('pro')
+        usd_price = float(pro_tier.get('price', 30))
+        simple = get_simple_price([asset_id])
+        token_usd = float(simple.get(asset_id, 0))
+        if token_usd <= 0:
+            info = get_asset_info(asset_id)
+            if not info or 'market_data' not in info or 'current_price' not in info['market_data']:
+                return jsonify({'success': False, 'message': 'Price data unavailable'}), 502
+            token_usd = float(info['market_data']['current_price'].get('usd', 0))
+        amount = usd_price / token_usd if token_usd > 0 else 0
+        decimals_map_by_base = {
+            'BTC': 8,
+            'ETH': 6,
+            'SOL': 6,
+            'BNB': 6,
+            'USDT': 2,
+            'USDC': 2
+        }
+        decimals = decimals_map_by_base.get(base, 6)
+        amount_formatted = float(f"{amount:.{decimals}f}")
+        return jsonify({
+            'success': True,
+            'data': {
+                'token': token,
+                'base_token': base,
+                'asset_id': asset_id,
+                'price_usd': token_usd,
+                'pro_price_usd': usd_price,
+                'amount': amount,
+                'amount_formatted': amount_formatted,
+                'decimals': decimals
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @bp.route('/configure')
 @login_required
@@ -92,11 +193,20 @@ def configure():
     # Get exchange and asset data
     exchanges = get_supported_exchanges()
     assets = get_supported_assets()
+
+    # Tier limits for UI enforcement
+    tier_info = config_manager.get_subscription_tier(current_user.subscription_tier)
+    tier_limits = {
+        'name': tier_info.get('name', current_user.subscription_tier),
+        'max_exchanges': tier_info.get('max_exchanges', -1),
+        'max_assets': tier_info.get('max_assets', -1)
+    }
     
     return render_template('dashboard/configure.html',
                          user_preferences=user_preferences,
                          exchanges=exchanges,
-                         assets=assets)
+                         assets=assets,
+                         tier_limits=tier_limits)
 
 @bp.route('/save-settings', methods=['POST'])
 @login_required
@@ -115,6 +225,17 @@ def save_settings():
         preferences.min_profit_percent = float(request.form.get('min_profit_percent', 0.5))
         preferences.include_slippage = 'include_slippage' in request.form
         preferences.include_fees = 'include_fees' in request.form
+
+        # Enforce tier limits server-side
+        tier_info = config_manager.get_subscription_tier(current_user.subscription_tier)
+        max_ex = tier_info.get('max_exchanges', -1)
+        max_as = tier_info.get('max_assets', -1)
+        if isinstance(max_ex, int) and max_ex != -1 and len(preferences.preferred_exchanges) > max_ex:
+            preferences.preferred_exchanges = preferences.preferred_exchanges[:max_ex]
+            flash(f'Limit reached: Your plan allows selecting up to {max_ex} exchanges. Extra selections were removed.', 'warning')
+        if isinstance(max_as, int) and max_as != -1 and len(preferences.preferred_assets) > max_as:
+            preferences.preferred_assets = preferences.preferred_assets[:max_as]
+            flash(f'Limit reached: Your plan allows selecting up to {max_as} assets. Extra selections were removed.', 'warning')
         
         # Update configuration status
         if preferences.has_valid_configuration():
