@@ -58,6 +58,7 @@ def init_app(app):
     app.cli.add_command(init_db_command)
     app.cli.add_command(create_user_command)
     app.cli.add_command(make_admin_command)
+    app.cli.add_command(list_users_command)
     
 @click.command('make-admin')
 @click.option('--email', prompt=True, help='Email of user to grant admin')
@@ -76,3 +77,18 @@ def make_admin_command(email):
     _db.session.add(role)
     _db.session.commit()
     click.echo(f'Granted admin to {email}')
+
+@click.command('list-users')
+@with_appcontext
+def list_users_command():
+    """List all users."""
+    users = User.query.all()
+    if not users:
+        click.echo('No users found.')
+        return
+    
+    click.echo(f'Found {len(users)} users:')
+    for user in users:
+        admin_role = AdminRole.query.filter_by(user_id=user.id).first()
+        role = "Admin" if admin_role else "User"
+        click.echo(f'- {user.username} ({user.email}) [{role}]')
