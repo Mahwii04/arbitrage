@@ -1,14 +1,14 @@
 """Service for managing user-specific arbitrage notifications"""
 import logging
-from typing import Dict, List
+from typing import Dict, List, Set, Tuple, Optional
 from app.config.config_manager import ConfigManager
 from app.models.arbitrage import ArbitrageOpportunity
 from app.models.user import User
 from app import db
 
 class UserArbitrageManager:
-    def __init__(self, config_manager: ConfigManager):
-        self.config_manager = config_manager
+    def __init__(self, config_manager: Optional[ConfigManager] = None):
+        self.config_manager = config_manager or ConfigManager()
         self.logger = logging.getLogger(__name__)
     
     def get_users_for_notifications(self) -> List[User]:
@@ -34,48 +34,127 @@ class UserArbitrageManager:
                 self.logger.error(f"Error getting all users: {fallback_error}")
                 return []
     
+    def get_user_allowed_exchanges(self, user: User) -> Set[str]:
+        """
+        Get the set of exchanges a user is allowed to receive notifications for.
+        This respects both user preferences AND tier limits.
+        """
+        tier_info = self.config_manager.get_subscription_tier(user.subscription_tier)
+        max_exchanges = tier_info.get('max_exchanges', 2)
+        
+        prefs = user.preferences
+        
+        if prefs and prefs.preferred_exchanges:
+            # User has set preferences - respect them but limit by tier
+            if max_exchanges == -1:  # Unlimited
+                return set(prefs.preferred_exchanges)
+            return set(prefs.preferred_exchanges[:max_exchanges])
+        else:
+            # No preferences - return default limited set
+            all_exchanges = [ex['id'] for ex in self.config_manager.get_enabled_exchanges()]
+            if max_exchanges == -1:  # Unlimited
+                return set(all_exchanges)
+            return set(all_exchanges[:max_exchanges])
+    
+    def get_user_allowed_assets(self, user: User) -> Set[str]:
+        """
+        Get the set of assets a user is allowed to receive notifications for.
+        This respects both user preferences AND tier limits.
+        """
+        tier_info = self.config_manager.get_subscription_tier(user.subscription_tier)
+        max_assets = tier_info.get('max_assets', 3)
+        
+        prefs = user.preferences
+        
+        if prefs and prefs.preferred_assets:
+            # User has set preferences - respect them but limit by tier
+            if max_assets == -1:  # Unlimited
+                return set(prefs.preferred_assets)
+            return set(prefs.preferred_assets[:max_assets])
+        else:
+            # No preferences - return default limited set
+            all_assets = [a['id'] for a in self.config_manager.get_enabled_assets()]
+            if max_assets == -1:  # Unlimited
+                return set(all_assets)
+            return set(all_assets[:max_assets])
+    
     def filter_opportunities_for_user(
         self,
         opportunities: List[ArbitrageOpportunity],
-        user_settings: Dict
+        user: User
     ) -> List[ArbitrageOpportunity]:
         """
-        Filter arbitrage opportunities based on user preferences and subscription tier
+        Filter arbitrage opportunities based on user preferences and subscription tier.
+        
+        STRICT FILTERING:
+        - BOTH buy_exchange AND sell_exchange must be in user's allowed exchanges
+        - Asset must be in user's allowed assets
+        - Profit must meet user's minimum threshold
         """
-        # Get user's subscription tier limits
-        tier = self.config_manager.get_subscription_tier(user_settings.get('subscription_tier', 'free'))
-        max_exchanges = tier.get('max_exchanges', 2)
-        max_assets = tier.get('max_assets', 10)
+        user_exchanges = self.get_user_allowed_exchanges(user)
+        user_assets = self.get_user_allowed_assets(user)
         
-        # Get user's preferred exchanges and assets
-        user_exchanges = set(user_settings.get('preferred_exchanges', []))
-        user_assets = set(user_settings.get('preferred_assets', []))
-        min_profit = user_settings.get('min_profit_percent', 0.5)
+        prefs = user.preferences
+        min_profit = prefs.min_profit_percent if prefs else 0.5
         
-        # If user hasn't set preferences, use defaults up to their tier limits
-        if not user_exchanges:
-            exchanges = self.config_manager.get_enabled_exchanges()
-            user_exchanges = set(ex['id'] for ex in exchanges[:max_exchanges])
-        
-        if not user_assets:
-            assets = self.config_manager.get_enabled_assets()
-            user_assets = set(asset['id'] for asset in assets[:max_assets])
-        
-        # Filter opportunities
         filtered_opportunities = []
         for opp in opportunities:
-            # Check if opportunity matches user's preferences
-            if (opp.buy_exchange in user_exchanges and 
-                opp.sell_exchange in user_exchanges and
-                opp.token_id in user_assets and
-                opp.net_profit_percent >= min_profit):
-                filtered_opportunities.append(opp)
+            # STRICT: Both exchanges must be in user's allowed set
+            if opp.buy_exchange not in user_exchanges:
+                continue
+            if opp.sell_exchange not in user_exchanges:
+                continue
+            
+            # STRICT: Asset must be in user's allowed set (check both id and symbol)
+            if opp.token_id not in user_assets and opp.token_symbol not in user_assets:
+                continue
+            
+            # Check minimum profit threshold
+            if opp.net_profit_percent < min_profit:
+                continue
+            
+            filtered_opportunities.append(opp)
         
         return filtered_opportunities
     
-    def get_notification_channels(self, user_settings: Dict) -> List[str]:
+    def validate_user_configuration(self, user: User) -> Tuple[bool, List[str]]:
+        """
+        Validate if user has a proper configuration to receive notifications.
+        Returns (is_valid, list_of_issues)
+        """
+        issues = []
+        
+        # Check if user has preferences
+        prefs = user.preferences
+        if not prefs:
+            issues.append("User preferences not configured")
+            return False, issues
+        
+        # Check if user has notification settings
+        if not user.notification_settings:
+            issues.append("Notification settings not configured")
+            return False, issues
+        
+        # Check if at least some notifications are enabled
+        if not user.notification_settings.arbitrage_notifications:
+            issues.append("Arbitrage notifications are disabled")
+        
+        # Check if user has selected at least 2 exchanges (needed for arbitrage)
+        user_exchanges = self.get_user_allowed_exchanges(user)
+        if len(user_exchanges) < 2:
+            issues.append(f"At least 2 exchanges required for arbitrage, only {len(user_exchanges)} configured")
+        
+        # Check if user has selected at least 1 asset
+        user_assets = self.get_user_allowed_assets(user)
+        if len(user_assets) < 1:
+            issues.append("At least 1 asset must be selected")
+        
+        is_valid = len(issues) == 0
+        return is_valid, issues
+    
+    def get_notification_channels(self, user: User) -> List[str]:
         """Get available notification channels for user's subscription tier"""
-        tier = self.config_manager.get_subscription_tier(user_settings.get('subscription_tier', 'free'))
+        tier = self.config_manager.get_subscription_tier(user.subscription_tier)
         return tier.get('notification_channels', ['webapp'])
     
     def format_opportunity_notification(self, opportunity: ArbitrageOpportunity) -> Dict:

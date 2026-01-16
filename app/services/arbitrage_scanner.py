@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 from app.config.config_manager import ConfigManager
 from app.services.price_fetcher import EnhancedPriceFetcher
-from app.models.arbitrage import ArbitrageOpportunity
+from app.models.arbitrage import ArbitrageOpportunity, InvalidArbitrageOpportunityError
 from app.models.user import User, NotificationSettings
 from app.services.notification_service import NotificationManager
 from app.services.user_arbitrage_manager import UserArbitrageManager
@@ -79,28 +79,57 @@ class ArbitrageScanner:
     def is_valid_opportunity(self, buy_price: float, sell_price: float, 
                            buy_exchange: str, sell_exchange: str) -> bool:
         """
-        Validate if this is a legitimate arbitrage opportunity
+        Validate if this is a legitimate arbitrage opportunity.
+        This is the CRITICAL validation gate - be strict here.
         """
         # Basic price validation
         if buy_price <= 0 or sell_price <= 0:
+            self.logger.debug(f"Invalid prices: buy={buy_price}, sell={sell_price}")
             return False
-            
-        # Exchanges must be different
+        
+        # CRITICAL: Exchanges must be different
         if buy_exchange == sell_exchange:
+            self.logger.warning(
+                f"REJECTED: Same exchange arbitrage attempt - buy_exchange={buy_exchange}, sell_exchange={sell_exchange}. "
+                f"This should never happen - check data pipeline!"
+            )
             return False
-        # Must have positive price difference
+        
+        # Validate exchange identifiers are not empty
+        if not buy_exchange or not sell_exchange:
+            self.logger.warning(f"Empty exchange identifier: buy={buy_exchange}, sell={sell_exchange}")
+            return False
+        
+        # Validate exchange identifiers are strings
+        if not isinstance(buy_exchange, str) or not isinstance(sell_exchange, str):
+            self.logger.warning(f"Invalid exchange type: buy={type(buy_exchange)}, sell={type(sell_exchange)}")
+            return False
+        
+        # Must have positive price difference (sell > buy)
         if sell_price <= buy_price:
             return False
             
         # Price difference should be reasonable (not more than 50% difference)
+        # Anything above this is likely bad data or manipulation
         price_diff_pct = ((sell_price - buy_price) / buy_price) * 100
         if price_diff_pct > 50:
-            self.logger.warning(f"Suspicious price difference: {price_diff_pct:.2f}% between {buy_exchange} (${buy_price}) and {sell_exchange} (${sell_price})")
+            self.logger.warning(
+                f"REJECTED: Suspicious price difference {price_diff_pct:.2f}% between "
+                f"{buy_exchange} (${buy_price}) and {sell_exchange} (${sell_price})"
+            )
             return False
             
         # Minimum price difference should be at least 0.1% to be worth considering
+        # Below this, fees will eat all profit
         if price_diff_pct < 0.1:
             return False
+        
+        # Additional sanity check: log unusual but valid opportunities
+        if price_diff_pct > 10:
+            self.logger.info(
+                f"High-value opportunity detected: {price_diff_pct:.2f}% spread "
+                f"between {buy_exchange} and {sell_exchange}"
+            )
             
         return True
     
@@ -191,6 +220,15 @@ class ArbitrageScanner:
                 for j in range(i + 1, len(consolidated)):
                     buy = consolidated[i]
                     sell = consolidated[j]
+                    
+                    # SAFETY CHECK: Ensure we're comparing different exchanges
+                    if buy['exchange_id'] == sell['exchange_id']:
+                        self.logger.error(
+                            f"BUG DETECTED: Same exchange in comparison loop! "
+                            f"exchange={buy['exchange_id']}, i={i}, j={j}"
+                        )
+                        continue
+                    
                     # build both directions
                     for bp, sp, be, se, bvol, svol in [
                         (buy['price'], sell['price'], buy['exchange_id'], sell['exchange_id'], buy['volume'], sell['volume']),
@@ -206,36 +244,49 @@ class ArbitrageScanner:
                         # Check profit requirements
                         meets_requirements, profit_results = self.meets_profit_requirements(bp, sp, be, se)
                         if meets_requirements:
-                            valid_opportunities += 1
-                            opportunity = ArbitrageOpportunity(
-                                token_id=token_id,
-                                token_symbol=token['symbol'],
-                                buy_exchange=be,
-                                sell_exchange=se,
-                                buy_price=bp,
-                                sell_price=sp
-                            )
-                            raw_price_diff = sp - bp
-                            raw_spread_pct = (raw_price_diff / bp) * 100
-                            opportunity.raw_spread_percent = raw_spread_pct
-                            opportunity.raw_price_difference = raw_price_diff
-                            opportunity.profit_on_500 = profit_results.get('profit_on_500', 0)
-                            opportunity.profit_on_1000 = profit_results.get('profit_on_1000', 0)
-                            opportunity.profit_on_5000 = profit_results.get('profit_on_5000', 0)
-                            opportunity.profit_on_10000 = profit_results.get('profit_on_10000', 0)
-                            details_1000 = profit_results.get('details_1000', {})
-                            opportunity.net_profit_percent = details_1000.get('profit_percentage', 0)
-                            opportunity.buy_fee = details_1000.get('buy_fee', 0)
-                            opportunity.sell_fee = details_1000.get('sell_fee', 0)
-                            # reflect slippage estimates
-                            opportunity.buy_slippage = (details_1000.get('investment_amount', 0) * 0.001)
-                            opportunity.sell_slippage = (details_1000.get('gross_revenue', 0) * 0.001)
-                            opportunity.min_investment_required = 500
-                            opportunities.append(opportunity)
-                            self.logger.info(
-                                f"Found opportunity: {token['symbol']} {be} -> {se}, ${bp:.6f} -> ${sp:.6f}, "
-                                f"Profit: ${opportunity.profit_on_1000:.2f} on $1000"
-                            )
+                            try:
+                                # Create opportunity with validation
+                                opportunity = ArbitrageOpportunity(
+                                    token_id=token_id,
+                                    token_symbol=token['symbol'],
+                                    buy_exchange=be,
+                                    sell_exchange=se,
+                                    buy_price=bp,
+                                    sell_price=sp
+                                )
+                                raw_price_diff = sp - bp
+                                raw_spread_pct = (raw_price_diff / bp) * 100
+                                opportunity.raw_spread_percent = raw_spread_pct
+                                opportunity.raw_price_difference = raw_price_diff
+                                opportunity.profit_on_500 = profit_results.get('profit_on_500', 0)
+                                opportunity.profit_on_1000 = profit_results.get('profit_on_1000', 0)
+                                opportunity.profit_on_5000 = profit_results.get('profit_on_5000', 0)
+                                opportunity.profit_on_10000 = profit_results.get('profit_on_10000', 0)
+                                details_1000 = profit_results.get('details_1000', {})
+                                opportunity.net_profit_percent = details_1000.get('profit_percentage', 0)
+                                opportunity.buy_fee = details_1000.get('buy_fee', 0)
+                                opportunity.sell_fee = details_1000.get('sell_fee', 0)
+                                # reflect slippage estimates
+                                opportunity.buy_slippage = (details_1000.get('investment_amount', 0) * 0.001)
+                                opportunity.sell_slippage = (details_1000.get('gross_revenue', 0) * 0.001)
+                                opportunity.min_investment_required = 500
+                                
+                                valid_opportunities += 1
+                                opportunities.append(opportunity)
+                                self.logger.info(
+                                    f"Found opportunity: {token['symbol']} {be} -> {se}, ${bp:.6f} -> ${sp:.6f}, "
+                                    f"Profit: ${opportunity.profit_on_1000:.2f} on $1000"
+                                )
+                            except InvalidArbitrageOpportunityError as e:
+                                # This should never happen if is_valid_opportunity works correctly
+                                # but we catch it as a safety net
+                                self.logger.error(
+                                    f"Validation error creating opportunity (this is a bug): {e}"
+                                )
+                                continue
+                            except Exception as e:
+                                self.logger.error(f"Unexpected error creating opportunity: {e}")
+                                continue
 
         self.logger.info(f"Analyzed {total_comparisons} comparisons, found {valid_opportunities} valid opportunities")
         return opportunities

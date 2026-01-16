@@ -1,17 +1,23 @@
-"""Background arbitrage scanner service with improved deduplication"""
+"""Background arbitrage scanner service with improved deduplication and proper scan counting"""
 import logging
 import threading
 import time
 from datetime import datetime, timedelta
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, Dict
 from flask import Flask
 from app.config.config_manager import ConfigManager
 from app.services.arbitrage_scanner import ArbitrageScanner
 from app.services.notification_service import NotificationManager
 from app.services.user_arbitrage_manager import UserArbitrageManager
-from app.models.arbitrage import ArbitrageOpportunity
-from app.models.user import User, ScanHistory
+from app.models.arbitrage import ArbitrageOpportunity, InvalidArbitrageOpportunityError
+from app.models.user import User, ScanHistory, UserNotification, NotificationSettings, UserPreferences
 from app import db
+
+
+class ScanLimitExceededError(Exception):
+    """Raised when a user has exceeded their scan limit for the billing period"""
+    pass
+
 
 class BackgroundArbitrageScanner:
     def __init__(self, app: Flask = None, scan_interval: int = 300, min_dollar_profit: float = 10.0):
@@ -33,6 +39,10 @@ class BackgroundArbitrageScanner:
         # Track recent opportunities to prevent duplicates within scan cycles
         self.recent_opportunities: Set[Tuple[str, str, str]] = set()  # (token, buy_exchange, sell_exchange)
         self.last_cleanup = datetime.utcnow()
+        
+        # Cache for user scan counts to reduce DB queries
+        self._user_scan_count_cache: Dict[int, Dict] = {}  # user_id -> {count, period_start, last_updated}
+        self._cache_ttl_seconds = 60  # Cache TTL
         
     def start(self, app: Flask = None):
         """Start the background scanner"""
@@ -212,31 +222,165 @@ class BackgroundArbitrageScanner:
 
     def _record_scan_history(self, total_opportunities: int, new_opportunities: int, 
                            exchanges_scanned: int, scan_start_time: float):
-        """Record scan history for all users"""
+        """
+        Record scan participation for users with ACTIVE configurations.
+        
+        SCAN COUNTING LOGIC:
+        - A scan counts when the user's account PARTICIPATES in a scan cycle
+        - User participates if they have an active configuration (is_configuration_active=True)
+        - Counts regardless of whether opportunities are found
+        - Once at limit (e.g., 500/500 for free), user is excluded from future cycles
+        """
         try:
             scan_duration = time.time() - scan_start_time
             
-            # Get all active users
-            users = User.query.filter(User._is_active == True).all()
+            # Get users with ACTIVE configurations who should participate in this scan
+            from app.models.user import UserPreferences
             
-            for user in users:
-                # Create scan history record
+            participating_users = User.query.join(UserPreferences).filter(
+                User._is_active == True,
+                UserPreferences.is_configuration_active == True
+            ).all()
+            
+            users_counted = 0
+            users_at_limit = 0
+            
+            for user in participating_users:
+                # Check if user has remaining scans BEFORE counting
+                has_remaining, scans_used, scans_limit = self._check_user_scan_limit(user)
+                
+                if not has_remaining:
+                    # User has hit their limit - they shouldn't be participating
+                    # Deactivate their configuration
+                    users_at_limit += 1
+                    self._handle_user_at_limit(user, scans_used, scans_limit)
+                    continue
+                
+                # Record scan participation for this user
                 scan_history = ScanHistory(
                     user_id=user.id,
                     scan_type='scheduled',
-                    tokens_scanned=total_opportunities,
+                    tokens_scanned=len(self.config_manager.get_enabled_assets()),
                     exchanges_scanned=exchanges_scanned,
                     opportunities_found=new_opportunities,
                     scan_duration=scan_duration
                 )
                 db.session.add(scan_history)
+                users_counted += 1
+                
+                # Invalidate cache for this user
+                if user.id in self._user_scan_count_cache:
+                    del self._user_scan_count_cache[user.id]
             
             db.session.commit()
-            self.logger.info(f"Recorded scan history for {len(users)} users: {new_opportunities} opportunities found")
+            self.logger.info(
+                f"Scan cycle recorded: {users_counted} users participated, "
+                f"{users_at_limit} users at limit, {new_opportunities} opportunities found"
+            )
             
         except Exception as e:
             self.logger.error(f"Error recording scan history: {str(e)}")
             db.session.rollback()
+    
+    def _handle_user_at_limit(self, user: User, scans_used: int, scans_limit: int):
+        """
+        Handle a user who has reached their scan limit.
+        - Deactivate their configuration so they don't participate in future scans
+        - Send them a notification (once)
+        """
+        try:
+            # Deactivate user's configuration
+            if user.preferences and user.preferences.is_configuration_active:
+                user.preferences.is_configuration_active = False
+                db.session.add(user.preferences)
+                
+                # Send limit reached notification (check if already sent today)
+                self._send_limit_reached_notification(user, scans_used, scans_limit)
+                
+                self.logger.info(
+                    f"User {user.id} reached scan limit ({scans_used}/{scans_limit}). "
+                    f"Configuration deactivated."
+                )
+        except Exception as e:
+            self.logger.error(f"Error handling user at limit {user.id}: {str(e)}")
+    
+    def _get_user_scan_count_for_period(self, user_id: int) -> Tuple[int, datetime]:
+        """
+        Get user's scan count for the current billing period with caching.
+        Returns (count, period_start_date)
+        
+        Counts ALL scan participations (scheduled scans where user had active config),
+        not just notifications received.
+        """
+        now = datetime.utcnow()
+        period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        # Check cache first
+        cached = self._user_scan_count_cache.get(user_id)
+        if cached:
+            cache_age = (now - cached.get('last_updated', datetime.min)).total_seconds()
+            if cache_age < self._cache_ttl_seconds and cached.get('period_start') == period_start:
+                return cached['count'], period_start
+        
+        # Query database - count ALL scan participations for the period
+        count = ScanHistory.query.filter(
+            ScanHistory.user_id == user_id,
+            ScanHistory.created_at >= period_start
+        ).count()
+        
+        # Update cache
+        self._user_scan_count_cache[user_id] = {
+            'count': count,
+            'period_start': period_start,
+            'last_updated': now
+        }
+        
+        return count, period_start
+    
+    def _check_user_scan_limit(self, user: User) -> Tuple[bool, int, int]:
+        """
+        Check if user has remaining scans in their billing period.
+        Returns (has_remaining, used_count, limit)
+        """
+        tier_info = self.config_manager.get_subscription_tier(user.subscription_tier)
+        scans_limit = tier_info.get('scans_per_month', -1)
+        
+        # -1 means unlimited
+        if scans_limit == -1:
+            return True, 0, -1
+        
+        scans_used, _ = self._get_user_scan_count_for_period(user.id)
+        has_remaining = scans_used < scans_limit
+        
+        return has_remaining, scans_used, scans_limit
+    
+    def _get_participating_users(self) -> List[User]:
+        """
+        Get users who should participate in the current scan cycle.
+        
+        A user participates if:
+        1. Their account is active
+        2. Their configuration is active (is_configuration_active=True)
+        3. They have remaining scans in their billing period
+        """
+        from app.models.user import UserPreferences
+        
+        # Get users with active configurations
+        users_with_config = User.query.join(UserPreferences).filter(
+            User._is_active == True,
+            UserPreferences.is_configuration_active == True
+        ).all()
+        
+        participating = []
+        for user in users_with_config:
+            has_remaining, scans_used, scans_limit = self._check_user_scan_limit(user)
+            if has_remaining:
+                participating.append(user)
+            else:
+                # User hit limit - handle it
+                self._handle_user_at_limit(user, scans_used, scans_limit)
+        
+        return participating
     
     def _store_opportunities(self, opportunities: List[ArbitrageOpportunity]):
         """Store new opportunities in database"""
@@ -262,85 +406,104 @@ class BackgroundArbitrageScanner:
             db.session.rollback()
     
     def _send_consolidated_notifications(self, opportunities: List[ArbitrageOpportunity]):
-        """Send consolidated notifications to users (one per token per user)"""
+        """
+        Send consolidated notifications to users who participated in this scan cycle.
+        
+        NOTE: Scan counting happens in _record_scan_history, not here.
+        This method only handles notification delivery for users who:
+        1. Already participated in the scan (were counted)
+        2. Have matching opportunities based on their preferences
+        """
         try:
-            # Get users with arbitrage notifications enabled and active
-            users_with_notifications = User.query.join(User.notification_settings).filter(
-                User.notification_settings.has(arbitrage_notifications=True),
-                User._is_active == True
-            ).all()
+            # Get users who participated in this scan (active config + have remaining scans)
+            participating_users = self._get_participating_users()
             
-            if not users_with_notifications:
-                self.logger.info("No users have arbitrage notifications enabled")
+            if not participating_users:
+                self.logger.info("No users participating in this scan cycle")
                 return
             
-            # Group opportunities by token to send consolidated notifications
-            token_opportunities = {}
+            # Group opportunities by token for consolidated notifications
+            token_opportunities: Dict[str, List[ArbitrageOpportunity]] = {}
             for opp in opportunities:
                 if opp.token_symbol not in token_opportunities:
                     token_opportunities[opp.token_symbol] = []
                 token_opportunities[opp.token_symbol].append(opp)
             
             total_notifications_sent = 0
+            users_no_matching = 0
             
-            # Send notifications to each user
-            for user in users_with_notifications:
+            # Process each participating user
+            for user in participating_users:
                 try:
-                    # Enforce scans per month limits by tier
-                    from app.config.config_manager import ConfigManager
-                    tier_info = ConfigManager().get_subscription_tier(user.subscription_tier)
-                    scans_limit = tier_info.get('scans_per_month', -1)
-                    scans_used = user.scan_history.filter(
-                        ScanHistory.created_at >= datetime.utcnow().replace(day=1)
-                    ).count()
-                    if isinstance(scans_limit, int) and scans_limit != -1 and scans_used >= scans_limit:
-                        # Optionally notify the user about hitting the limit
-                        try:
-                            notif = UserNotification(
-                                user_id=user.id,
-                                notification_type='system_update',
-                                channel='in_app',
-                                title='Plan Limit Reached',
-                                message=f'You have reached your monthly scan notification limit ({scans_limit}). Upgrade to Pro for unlimited alerts.'
-                            )
-                            db.session.add(notif)
-                            notif.mark_as_sent()
-                            db.session.commit()
-                        except Exception:
-                            db.session.rollback()
+                    # Check if user has notification settings enabled
+                    if not user.notification_settings:
                         continue
-                    
-                    # Check notification settings and limits
+                    if not user.notification_settings.arbitrage_notifications:
+                        continue
                     if not user.notification_settings.should_send_notification('arbitrage_opportunity'):
                         continue
                     
-                    # Filter opportunities by user preferences (strict for free tier)
+                    # Get user preferences and tier limits
                     prefs = user.preferences
+                    tier_info = self.config_manager.get_subscription_tier(user.subscription_tier)
+                    max_exchanges = tier_info.get('max_exchanges', 2)
+                    max_assets = tier_info.get('max_assets', 3)
+                    allowed_channels = tier_info.get('notification_channels', ['webapp'])
                     
+                    # Determine user's allowed exchanges and assets
+                    user_exchanges = set()
+                    user_assets = set()
+                    
+                    if prefs and prefs.preferred_exchanges:
+                        user_exchanges = set(prefs.preferred_exchanges[:max_exchanges] if max_exchanges > 0 else prefs.preferred_exchanges)
+                    else:
+                        all_exchanges = [ex['id'] for ex in self.config_manager.get_enabled_exchanges()]
+                        user_exchanges = set(all_exchanges[:max_exchanges] if max_exchanges > 0 else all_exchanges)
+                    
+                    if prefs and prefs.preferred_assets:
+                        user_assets = set(prefs.preferred_assets[:max_assets] if max_assets > 0 else prefs.preferred_assets)
+                    else:
+                        all_assets = [a['id'] for a in self.config_manager.get_enabled_assets()]
+                        user_assets = set(all_assets[:max_assets] if max_assets > 0 else all_assets)
+                    
+                    min_profit = prefs.min_profit_percent if prefs else 0.5
+                    
+                    # Filter opportunities by user's preferences
+                    user_filtered_opportunities: Dict[str, List[ArbitrageOpportunity]] = {}
+                    
+                    for token_symbol, token_opps in token_opportunities.items():
+                        matching_opps = []
+                        for opp in token_opps:
+                            # STRICT CHECK: Both exchanges must be in user's allowed set
+                            if opp.buy_exchange not in user_exchanges:
+                                continue
+                            if opp.sell_exchange not in user_exchanges:
+                                continue
+                            
+                            # STRICT CHECK: Asset must be in user's allowed set
+                            if opp.token_id not in user_assets and opp.token_symbol not in user_assets:
+                                continue
+                            
+                            # Check minimum profit threshold
+                            if opp.net_profit_percent < min_profit:
+                                continue
+                            
+                            matching_opps.append(opp)
+                        
+                        if matching_opps:
+                            user_filtered_opportunities[token_symbol] = matching_opps
+                    
+                    # No matching opportunities for this user's preferences
+                    if not user_filtered_opportunities:
+                        users_no_matching += 1
+                        continue
+                    
+                    # Send notifications for matching opportunities
                     user_notifications_sent = 0
                     
-                    # Send one notification per token (best opportunity)
-                    for token_symbol, token_opps in token_opportunities.items():
-                        # Apply preference filters: limit to selected exchanges/assets if set
-                        filtered = []
-                        if prefs:
-                            for opp in token_opps:
-                                ex_ok = (not prefs.preferred_exchanges) or (
-                                    opp.buy_exchange in prefs.preferred_exchanges or
-                                    opp.sell_exchange in prefs.preferred_exchanges
-                                )
-                                asset_ok = (not prefs.preferred_assets) or (
-                                    opp.token_symbol in prefs.preferred_assets or
-                                    opp.token_id in prefs.preferred_assets
-                                )
-                                if ex_ok and asset_ok:
-                                    filtered.append(opp)
-                        else:
-                            filtered = token_opps
-                        if not filtered:
-                            continue
-                        # Get the best opportunity for this token (highest profit on $1000)
-                        best_opportunity = max(filtered, key=lambda x: x.profit_on_1000)
+                    for token_symbol, filtered_opps in user_filtered_opportunities.items():
+                        # Get the best opportunity for this token
+                        best_opportunity = max(filtered_opps, key=lambda x: x.profit_on_1000)
                         
                         # Create notification content
                         title = f"🚀 Arbitrage: {best_opportunity.token_symbol}"
@@ -355,8 +518,12 @@ class BackgroundArbitrageScanner:
                             'opportunity': best_opportunity.to_dict(),
                             'profit_1000': best_opportunity.profit_on_1000,
                             'profit_5000': best_opportunity.profit_on_5000,
-                            'total_opportunities': len(token_opps)
+                            'total_opportunities': len(filtered_opps)
                         }
+                        
+                        # Check notification channel is allowed
+                        if 'webapp' not in allowed_channels and 'in_app' not in allowed_channels:
+                            continue
                         
                         # Send notification
                         success = self.notification_manager.send_notification(
@@ -368,16 +535,58 @@ class BackgroundArbitrageScanner:
                             total_notifications_sent += 1
                     
                     if user_notifications_sent > 0:
-                        self.logger.info(f"Sent {user_notifications_sent} notifications to user {user.id}")
+                        self.logger.info(
+                            f"Sent {user_notifications_sent} notifications to user {user.id} "
+                            f"(tier: {user.subscription_tier})"
+                        )
                     
                 except Exception as user_error:
                     self.logger.error(f"Error sending notifications to user {user.id}: {str(user_error)}")
                     continue
             
-            self.logger.info(f"Total notifications sent: {total_notifications_sent}")
+            self.logger.info(
+                f"Notification summary: {total_notifications_sent} sent to {len(participating_users)} participants, "
+                f"{users_no_matching} had no matching opportunities"
+            )
             
         except Exception as e:
             self.logger.error(f"Error in consolidated notifications: {str(e)}")
+    
+    def _send_limit_reached_notification(self, user: User, scans_used: int, scans_limit: int):
+        """Send a notification when user reaches their scan limit (once per day)"""
+        try:
+            # Check if we already sent this notification today
+            today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            existing = UserNotification.query.filter(
+                UserNotification.user_id == user.id,
+                UserNotification.notification_type == 'limit_reached',
+                UserNotification.created_at >= today_start
+            ).first()
+            
+            if existing:
+                return  # Already notified today
+            
+            # Create limit notification
+            notification = UserNotification(
+                user_id=user.id,
+                notification_type='limit_reached',
+                channel='in_app',
+                title='📊 Monthly Scan Limit Reached',
+                message=(
+                    f'You have reached your monthly scan notification limit ({scans_used}/{scans_limit}). '
+                    f'Upgrade to Pro for unlimited alerts and never miss an opportunity!'
+                ),
+                data={'scans_used': scans_used, 'scans_limit': scans_limit}
+            )
+            db.session.add(notification)
+            notification.mark_as_sent()
+            db.session.commit()
+            
+            self.logger.info(f"Sent limit reached notification to user {user.id}")
+            
+        except Exception as e:
+            self.logger.error(f"Error sending limit notification to user {user.id}: {str(e)}")
+            db.session.rollback()
     
     def _cleanup_recent_opportunities(self):
         """Clean up old entries from recent opportunities tracking"""

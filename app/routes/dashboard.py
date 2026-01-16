@@ -93,8 +93,8 @@ def subscription():
 def subscribe_pro():
     try:
         payment_token = request.form.get('payment_token', '').strip()
-        wallets = SiteSettings.get('payment_wallets', {})
-        wallet_info = wallets.get(payment_token)
+        wallets = SiteSettings.get('payment_wallets', {}) or {}
+        wallet_info = wallets.get(payment_token) if isinstance(wallets, dict) else None
         if not wallet_info or not wallet_info.get('address'):
             return jsonify({'success': False, 'message': 'Payment method unavailable'}), 400
         req = SubscriptionRequest(
@@ -128,7 +128,9 @@ def pro_price_quote():
             'USDC': 'usd-coin'
         }
         # Prefer admin-configured wallets mapping
-        wallets = SiteSettings.get('payment_wallets', {})
+        wallets = SiteSettings.get('payment_wallets', {}) or {}
+        if not isinstance(wallets, dict):
+            wallets = {}
         wallet_info = wallets.get(token) or wallets.get(base) or {}
         asset_id = wallet_info.get('coingecko_id')
         if not asset_id:
@@ -546,6 +548,9 @@ def get_notification_history():
             
             else:
                 return jsonify({'success': False, 'message': 'Invalid action'}), 400
+        
+        # Fallback return for POST without recognized action
+        return jsonify({'success': False, 'message': 'No action specified'}), 400
                 
     except Exception as e:
         return jsonify({

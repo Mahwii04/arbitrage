@@ -1,5 +1,6 @@
 """User and subscription related models"""
 from datetime import datetime
+from typing import Optional
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from time import time
@@ -212,6 +213,33 @@ class UserNotification(db.Model, TimestampMixin):
     # Relationships
     user = db.relationship('User', backref='user_notifications')
     opportunity = db.relationship('ArbitrageOpportunity', backref='notifications')
+    
+    def __init__(
+        self,
+        user_id: int,
+        notification_type: str,
+        channel: str,
+        title: str,
+        message: str,
+        opportunity_id: Optional[int] = None,
+        data: Optional[dict] = None,
+        status: str = 'pending',
+        sent_at: Optional[datetime] = None,
+        read_at: Optional[datetime] = None,
+        error_message: Optional[str] = None,
+        **kwargs
+    ):
+        self.user_id = user_id
+        self.notification_type = notification_type
+        self.channel = channel
+        self.title = title
+        self.message = message
+        self.opportunity_id = opportunity_id
+        self.data = data
+        self.status = status
+        self.sent_at = sent_at
+        self.read_at = read_at
+        self.error_message = error_message
     
     def mark_as_sent(self):
         """Mark notification as sent"""
